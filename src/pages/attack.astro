@@ -1,0 +1,7 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Attack from '../components/Attack.svelte';
+---
+<Layout title="Attack demo" subtitle="Follow one file through two attacks. First it is protected by RSA and Shor breaks it. Then we upgrade to ML-KEM and Shor fails." active="/attack">
+  <Attack client:only="svelte" />
+</Layout>

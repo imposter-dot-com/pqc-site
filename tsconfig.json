@@ -1,0 +1,5 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": { "allowImportingTsExtensions": true, "noEmit": true, "lib": ["ES2022", "DOM", "DOM.Iterable"] },
+  "include": [".astro/types.d.ts", "src", "test"]
+}

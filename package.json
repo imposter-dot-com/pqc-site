@@ -1,0 +1,26 @@
+{
+  "name": "pqc-site",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "node test/shor-core.test.ts && node test/hybrid.test.ts",
+    "test:real": "node test/mlkem.real.test.ts"
+  },
+  "dependencies": {
+    "@astrojs/svelte": "^7.0.0",
+    "@noble/curves": "^2.0.0",
+    "@noble/post-quantum": "^0.6.0",
+    "astro": "^5.0.0",
+    "chart.js": "^4.6.2",
+    "svelte": "^5.0.0"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.0",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

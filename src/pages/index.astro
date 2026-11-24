@@ -1,0 +1,71 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+<Layout title="Home" active="/" bare>
+  <section class="hero">
+    <span class="eyebrow">Interactive demo · runs entirely in your browser</span>
+    <h1>Quantum Threats to Modern Cryptography</h1>
+    <p>See how a quantum computer breaks RSA, why recorded traffic is at risk today, and how post-quantum encryption protects your data.</p>
+  </section>
+
+  <div class="cards home">
+    <a class="card" href="/simulator">
+      <div class="art a1">
+        <svg viewBox="0 0 360 150" role="img" aria-label="A number splits into two prime factors">
+          <rect x="20" y="22" width="84" height="40" rx="10" fill="#eaf0ff" stroke="#2f5bea"/>
+          <text x="62" y="48" text-anchor="middle" font-size="20" font-weight="700" fill="#2f5bea">N = 65</text>
+          <path d="M104 42 H140 M140 42 L170 24 M140 42 L170 60" stroke="#98a1b3" stroke-width="2" fill="none"/>
+          <rect x="172" y="8" width="64" height="32" rx="8" fill="#e9f7ef" stroke="#1b8a4b"/><text x="204" y="30" text-anchor="middle" font-size="16" font-weight="700" fill="#1b8a4b">5</text>
+          <rect x="172" y="44" width="64" height="32" rx="8" fill="#e9f7ef" stroke="#1b8a4b"/><text x="204" y="66" text-anchor="middle" font-size="16" font-weight="700" fill="#1b8a4b">13</text>
+          <text x="262" y="48" font-size="12" fill="#667085">key broken</text>
+          <path d="M20 128 L40 128 L40 100 L60 100 L60 128 L80 128 L80 100 L100 100 L100 128 L120 128 L120 100 L140 100 L140 128 L160 128 L160 100 L180 100 L180 128 L200 128 L200 100 L220 100 L220 128 L240 128 L240 100 L260 100 L260 128 L340 128" stroke="#6929c4" stroke-width="2.5" fill="none" stroke-linejoin="round"/>
+          <text x="20" y="146" font-size="11" fill="#667085">the repeating pattern Shor's algorithm finds</text>
+        </svg>
+      </div>
+      <div class="meta"><h3>Shor's algorithm simulator</h3></div>
+      <p>Watch a quantum circuit find the hidden period of a toy RSA key and factor it, one step at a time.</p>
+      <span class="go">Open simulator →</span>
+    </a>
+
+    <a class="card" href="/attack">
+      <div class="art a2">
+        <svg viewBox="0 0 360 150" role="img" aria-label="Alice sends to Bob while Eve records the traffic">
+          <circle cx="44" cy="46" r="22" fill="#eaf0ff" stroke="#2f5bea"/><text x="44" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#2f5bea">A</text>
+          <circle cx="316" cy="46" r="22" fill="#e9f7ef" stroke="#1b8a4b"/><text x="316" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#1b8a4b">B</text>
+          <path d="M70 46 H290" stroke="#98a1b3" stroke-width="2" stroke-dasharray="6 5"/><path d="M284 40 L292 46 L284 52" stroke="#98a1b3" stroke-width="2" fill="none"/>
+          <rect x="168" y="34" width="24" height="22" rx="4" fill="#fff" stroke="#667085"/><path d="M173 34 v-5 a7 7 0 0 1 14 0 v5" stroke="#667085" fill="none" stroke-width="2"/>
+          <path d="M180 56 V92" stroke="#d92d4b" stroke-width="2" stroke-dasharray="3 4"/>
+          <circle cx="180" cy="110" r="22" fill="#fdecef" stroke="#d92d4b"/><text x="180" y="116" text-anchor="middle" font-size="16" font-weight="700" fill="#d92d4b">E</text>
+          <text x="214" y="106" font-size="12" fill="#a8142f">records it today…</text>
+          <text x="214" y="124" font-size="12" fill="#a8142f">decrypts it later</text>
+        </svg>
+      </div>
+      <div class="meta"><h3>Attack demo</h3></div>
+      <p>Alice, Bob and Eve: see why traffic recorded today is at risk, and why a hybrid key holds.</p>
+      <span class="go">Open demo →</span>
+    </a>
+
+    <a class="card" href="/encrypt">
+      <div class="art a3">
+        <svg viewBox="0 0 360 150" role="img" aria-label="A file is locked with two keys into an encrypted file">
+          <path d="M28 20 h40 l16 16 v62 h-56 z" fill="#fff" stroke="#667085" stroke-width="1.5"/><path d="M68 20 v16 h16" fill="none" stroke="#667085" stroke-width="1.5"/>
+          <path d="M40 54 h32 M40 66 h32 M40 78 h20" stroke="#cfd4dd" stroke-width="3"/>
+          <text x="56" y="122" text-anchor="middle" font-size="11" fill="#667085">your file</text>
+          <path d="M96 62 H128" stroke="#98a1b3" stroke-width="2"/><path d="M122 56 L130 62 L122 68" stroke="#98a1b3" stroke-width="2" fill="none"/>
+          <rect x="138" y="30" width="86" height="26" rx="8" fill="#e6f5f4" stroke="#0e8f8a"/><text x="181" y="48" text-anchor="middle" font-size="12" font-weight="600" fill="#0e8f8a">X25519</text>
+          <rect x="138" y="62" width="86" height="26" rx="8" fill="#ebe7fb" stroke="#6d5bd0"/><text x="181" y="80" text-anchor="middle" font-size="12" font-weight="600" fill="#6d5bd0">ML-KEM-768</text>
+          <text x="181" y="108" text-anchor="middle" font-size="11" fill="#667085">two keys → AES-256</text>
+          <path d="M236 62 H268" stroke="#98a1b3" stroke-width="2"/><path d="M262 56 L270 62 L262 68" stroke="#98a1b3" stroke-width="2" fill="none"/>
+          <path d="M280 20 h40 l16 16 v62 h-56 z" fill="#eaf0ff" stroke="#2f5bea" stroke-width="1.5"/>
+          <rect x="294" y="62" width="28" height="22" rx="4" fill="#2f5bea"/><path d="M299 62 v-7 a9 9 0 0 1 18 0 v7" stroke="#2f5bea" stroke-width="2.5" fill="none"/>
+          <text x="308" y="122" text-anchor="middle" font-size="11" fill="#667085">.pqenc</text>
+        </svg>
+      </div>
+      <div class="meta"><h3>Encrypt a file</h3></div>
+      <p>Protect a file with X25519 + ML-KEM-768, so it stays safe even against a future quantum computer.</p>
+      <span class="go">Open encryption →</span>
+    </a>
+  </div>
+
+  <p class="foot">Toy-sized numbers and an unaudited prototype: built for learning, not for real secrets.</p>
+</Layout>

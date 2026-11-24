@@ -1,0 +1,24 @@
+---
+import '../styles/global.css';
+interface Props { title: string; subtitle?: string; active?: string; bare?: boolean }
+const { title, subtitle = '', active = '', bare = false } = Astro.props;
+const links = [['/', 'Home'], ['/simulator', 'Shor simulator'], ['/attack', 'Attack demo'], ['/encrypt', 'Encrypt a file']];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title} · Quantum Threats</title>
+  </head>
+  <body>
+    <nav class="nav">
+      <span class="brand">Quantum Threats</span>
+      {links.map(([href, label]) => <a href={href} class={active === href ? 'on' : ''}>{label}</a>)}
+    </nav>
+    <div class="wrap">
+      {!bare && <header class="page-head"><h1>{title}</h1>{subtitle && <p>{subtitle}</p>}</header>}
+      <slot />
+    </div>
+  </body>
+</html>

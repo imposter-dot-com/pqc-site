@@ -1,0 +1,7 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Simulator from '../components/Simulator.svelte';
+---
+<Layout title="Shor's algorithm simulator" subtitle="Break a toy RSA key step by step. This runs on small numbers only and does not break real RSA." active="/simulator">
+  <Simulator client:only="svelte" />
+</Layout>

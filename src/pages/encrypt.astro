@@ -1,0 +1,7 @@
+---
+import Layout from '../layouts/Layout.astro';
+import Encrypt from '../components/Encrypt.svelte';
+---
+<Layout title="Encrypt a file" subtitle="Hybrid X25519 + ML-KEM-768 encryption. Learning prototype, not audited." active="/encrypt">
+  <Encrypt client:only="svelte" />
+</Layout>
