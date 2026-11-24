@@ -7,7 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node test/shor-core.test.ts && node test/hybrid.test.ts",
+    "test": "node test/shor-core.test.ts && node test/hybrid.test.ts && node test/toy-ec.test.ts",
     "test:real": "node test/mlkem.real.test.ts"
   },
   "dependencies": {

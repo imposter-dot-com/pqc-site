@@ -4,6 +4,9 @@
   import { realSuite } from '../lib/suite.ts';
   import { establish, buildHeader, sealWithKey, openWithKey, parseFile, deriveFileKey, generateReceiverKeys, NONCE_LEN } from '../lib/hybrid.ts';
   import type { ReceiverKeys } from '../lib/hybrid.ts';
+  import { CURVE, G, decodePoint, encodeSecret, toyDh } from '../lib/toy-ec.ts';
+  import { shorDiscreteLog } from '../lib/shor-ecdlp.ts';
+  import { periodExperiment, scrambledFunction, seedFromBytes } from '../lib/shor-period.ts';
   import AttackViz from './AttackViz.svelte';
   import type { Viz } from '../lib/attack-viz.ts';
   import { utf8, randomBytes, toHex, equalBytes } from '../lib/bytes.ts';
@@ -38,7 +41,8 @@
     plain?: Uint8Array;
     aesKey?: Uint8Array; iv?: Uint8Array; ct?: Uint8Array; wrapped?: number[];
     d?: number;
-    hyb?: Uint8Array; hybKeys?: ReceiverKeys; ssX?: Uint8Array; pkX?: Uint8Array; realKey?: Uint8Array;
+    hyb?: Uint8Array; hybKeys?: ReceiverKeys; ssX?: Uint8Array; ssM?: Uint8Array; pkX?: Uint8Array; realKey?: Uint8Array;
+    ssRecovered?: Uint8Array;
   }
   let w: Work = {};
 
@@ -136,14 +140,18 @@
 
   // ---- act 2: the fix, with the hybrid ----
 
+  // the hybrid here is a toy elliptic curve (standing in for x25519) plus the real ml-kem-768.
+  // x25519 itself is too big for any simulator to attack, so we shrink it, like the toy rsa key in act 1
+  const toySuite = { kem: realSuite.kem, dh: toyDh };
+
   async function encryptHybrid(): Promise<Out> {
-    w.hybKeys = await generateReceiverKeys(realSuite);
-    const est = await establish(realSuite, w.hybKeys);
+    w.hybKeys = await generateReceiverKeys(toySuite);
+    const est = await establish(toySuite, w.hybKeys);
     const nonce = randomBytes(NONCE_LEN);
     w.hyb = await sealWithKey(est.key, buildHeader(est.ctM, est.ephPub, nonce), nonce, w.plain!);
-    w.ssX = est.ssX; w.pkX = w.hybKeys.pkX; w.realKey = est.key;
+    w.ssX = est.ssX; w.ssM = est.ssM; w.pkX = w.hybKeys.pkX; w.realKey = est.key;
     return {
-      note: `The same data is encrypted again with AES-256-GCM. This time the key is made from two exchanges mixed together: X25519 and ML-KEM-768. The ML-KEM part adds ${est.ctM.length} bytes to the file.`,
+      note: `The same data is encrypted again with AES-256-GCM. This time the key is made from two exchanges mixed together. ML-KEM-768 is the real thing (it adds ${est.ctM.length} bytes to the file). The elliptic-curve half is a toy curve with ${CURVE.n} points standing in for X25519, so our simulator can really attack it, just like the toy RSA key in Act 1.`,
       viz: { kind: 'mix', keyHex: toHex(est.key).slice(0, 16), ctM: est.ctM.length },
     };
   }
@@ -151,30 +159,83 @@
   async function eveRecords2(): Promise<Out> {
     return {
       note: 'Eve records this new file too, and waits for her quantum computer, just like before.',
-      viz: { kind: 'record', items: ['Encrypted data', `ML-KEM ciphertext (${w.hyb!.length > 0 ? parseFile(w.hyb!).ctM.length : 0} B)`, 'X25519 public key (32 B)'] },
+      viz: { kind: 'record', items: ['Encrypted data', `ML-KEM ciphertext (${parseFile(w.hyb!).ctM.length} B)`, 'Elliptic-curve public point'] },
     };
   }
 
-  async function shorFailsOnHybrid(): Promise<Out> {
+  // shor's discrete log, simulated for real on the toy curve. it only sees public points
+  async function shorBreaksCurve(): Promise<Out> {
     await sleep(30);
+    const B = decodePoint(w.hybKeys!.pkX);                 // bob's public point
+    const run = shorDiscreteLog(G, B);
+    if (run.k === null) return { note: "Shor was unlucky this time, so it didn't find the secret. Press the button again.", retry: true };
+
+    // with bob's secret, Eve works out the shared secret from Alice's public point, which travels with the file
+    const ephPub = parseFile(w.hyb!).ephPub;
+    w.ssRecovered = await toyDh.sharedSecret(encodeSecret(run.k), ephPub);
+    const matches = equalBytes(w.ssRecovered, w.ssX!);
+    const shot = run.shots[run.shots.length - 1]!;
     return {
-      note: "Eve runs Shor again. X25519 is an elliptic-curve scheme, so Shor breaks it and she gets its secret. (Our toy simulator can't break a real curve, so the demo just hands her that secret.) But ML-KEM-768 is built on lattices. There is no loop for Shor to find, so that secret stays hidden.",
-      viz: { kind: 'shor2' },
+      note: `Shor's discrete-log algorithm found Bob's secret number k = ${run.k} from his public point alone. Eve multiplies it with Alice's public point to get the elliptic-curve shared secret${matches ? ', and we checked that it matches the one Alice computed' : ''}. Real X25519 has about 2²⁵⁵ points, so breaking it would need roughly 2,300 logical qubits (a published estimate for 256-bit curves), far beyond any computer today. That is why the demo uses a toy curve.`,
+      viz: { kind: 'ecdlp', curve: CURVE, B, k: run.k, shot: { u: shot.u, v: shot.v }, shotsUsed: run.shots.length, registerQubits: run.registerQubits, pointQubits: run.pointQubits, matches },
+    };
+  }
+
+  // the first base with a short, even loop, so the spikes are easy to see in the chart
+  function shortLoopBase(N: number): { a: number; r: number } {
+    for (let a = 2; a < N; a++) {
+      if (S.gcd(a, N) !== 1) continue;
+      const r = S.classicalOrder(a, N);
+      if (r && r % 2 === 0 && r >= 8 && r <= 64) return { a, r };
+    }
+    return { a: 2, r: S.classicalOrder(2, rsa.N) ?? 0 };
+  }
+
+  // the same quantum period finding, run on two functions: one with a hidden loop and one seeded with the ml-kem key
+  async function shorOnMlKem(): Promise<Out> {
+    await sleep(30);
+    const N = rsa.N;
+    const t = 2 * S.bitLength(N);
+    const shots = 20;
+    const { a, r } = shortLoopBase(N);
+    const seed = await seedFromBytes(w.hybKeys!.pkM);
+
+    const loop = periodExperiment(x => S.modPow(a, x, N), t, shots, Math.random, 256);
+    const noLoop = periodExperiment(scrambledFunction(seed), t, shots, Math.random, 256);
+    const max = Math.max(...loop.blocks, ...noLoop.blocks);
+
+    return {
+      note: `Eve gives the same quantum computer (the same circuit size and the same ${shots} shots) two functions. The first has a hidden loop: ${a}ˣ mod ${N} repeats every ${r} steps, just like in Act 1. The second is a scrambled function seeded with the real ML-KEM-768 public key, because ML-KEM gives Shor no loop to work with. These are real simulated runs, not drawings.`,
+      viz: {
+        kind: 'spectrum',
+        max,
+        loop: { title: `Function with a loop: ${a}ˣ mod ${N}`, caption: `spikes every Q/${r}`, blocks: Array.from(loop.blocks), valid: loop.valid, shots, color: '#d92d4b' },
+        noLoop: { title: 'Function seeded with the ML-KEM public key', caption: 'no spikes, just noise', blocks: Array.from(noLoop.blocks), valid: noLoop.valid, shots, color: '#98a1b3' },
+      },
     };
   }
 
   async function eveTriesAgain(): Promise<Out> {
-    // she has the x25519 secret but has to guess the ml-kem one
+    // she has the (really recovered) curve secret but has to guess the ml-kem one
     const p = parseFile(w.hyb!);
-    const guessKey = await deriveFileKey(randomBytes(32), w.ssX!, p.ctM, p.ephPub, w.pkX!);
+    const guessKey = await deriveFileKey(randomBytes(32), w.ssRecovered!, p.ctM, p.ephPub, w.pkX!);
+
+    // control: with the real ml-kem secret as well, the same recovered secret opens the file
+    let controlOk = false;
+    try {
+      const controlKey = await deriveFileKey(w.ssM!, w.ssRecovered!, p.ctM, p.ephPub, w.pkX!);
+      await openWithKey(controlKey, p);
+      controlOk = true;
+    } catch { /* the control failed, which the page will show */ }
+
     try {
       await openWithKey(guessKey, p);
       return { note: 'Eve decrypted the hybrid copy (this should never happen).', reads: { kind: 'bad', text: 'Unexpected.' } };
     } catch {
       return {
-        note: 'Her key mixes the X25519 secret with a guessed ML-KEM secret, so it is the wrong key and AES-GCM rejects it. Breaking one half is not enough. (An illustration, not a proof that ML-KEM is unbreakable.)',
+        note: 'Eve has the elliptic-curve secret that Shor really recovered, but she has to guess the ML-KEM one. Her key is wrong, so AES-GCM rejects it. Breaking one half is not enough.',
         reads: { kind: 'ok', text: 'Nothing. AES-GCM rejected her key, so the data stays scrambled.' },
-        viz: { kind: 'wrongkey', real: toHex(w.realKey!).slice(0, 16), guess: toHex(guessKey).slice(0, 16) },
+        viz: { kind: 'wrongkey', real: toHex(w.realKey!).slice(0, 16), guess: toHex(guessKey).slice(0, 16), controlOk },
       };
     }
   }
@@ -188,10 +249,11 @@
     { act: 1, title: 'Eve records everything', text: 'Eve sits on the network and copies what Alice sends.', run: eveRecords1 },
     { act: 1, title: 'Years later: Eve runs Shor on the RSA key', text: "Eve now has a quantum computer. Shor's algorithm factors N, which gives her Bob's private key.", run: shorBreaksRsa },
     { act: 1, title: 'Eve decrypts the data', text: 'She unlocks the AES key with the stolen private key, then decrypts the data.', run: decryptWithStolenKey },
-    { act: 2, title: 'Encrypt the data again with the hybrid', text: 'Same data, same AES-256-GCM, but the key now comes from X25519 and ML-KEM-768 together.', run: encryptHybrid },
+    { act: 2, title: 'Encrypt the data again with the hybrid', text: 'Same data, same AES-256-GCM, but the key now comes from an elliptic-curve exchange and ML-KEM-768 together.', run: encryptHybrid },
     { act: 2, title: 'Eve records it again', text: 'Eve records the new file, exactly like before.', run: eveRecords2 },
-    { act: 2, title: 'Years later: Eve runs Shor again', text: 'Same quantum computer, same algorithm. Can it break this one?', run: shorFailsOnHybrid },
-    { act: 2, title: 'Eve tries to decrypt', text: 'She has the X25519 secret, but not the ML-KEM one.', run: eveTriesAgain },
+    { act: 2, title: 'Years later: Eve runs Shor on the elliptic-curve half', text: "Shor's algorithm also breaks elliptic curves. This one is simulated for real on a toy curve.", run: shorBreaksCurve },
+    { act: 2, title: 'Eve runs Shor on the ML-KEM half', text: 'Same quantum computer. Is there a loop in ML-KEM for Shor to find?', run: shorOnMlKem },
+    { act: 2, title: 'Eve tries to decrypt', text: 'She has the curve secret, but not the ML-KEM one.', run: eveTriesAgain },
   ];
 
   async function runNext(): Promise<void> {
@@ -240,7 +302,7 @@
   <div class="flow">
     {#each [1, 2] as act}
       <div class="act">
-        <h2>{act === 1 ? 'Act 1: today, protected by RSA' : 'Act 2: the fix, protected by the hybrid (X25519 + ML-KEM)'}</h2>
+        <h2>{act === 1 ? 'Act 1: today, protected by RSA' : 'Act 2: the fix, protected by the hybrid (elliptic curve + ML-KEM-768)'}</h2>
       </div>
       {#each STEPS as s, i}
         {#if s.act === act}
@@ -281,7 +343,7 @@
         <h2>What we learned</h2>
         <div class="results">
           <div class="reads bad"><b>RSA:</b> Shor factored N, so Eve got the private key and read the data.</div>
-          <div class="reads ok"><b>Hybrid:</b> Shor broke X25519 but not ML-KEM, so the data stayed scrambled.</div>
+          <div class="reads ok"><b>Hybrid:</b> Shor really recovered the elliptic-curve secret, but found no loop in ML-KEM, so the key stayed incomplete and the data stayed scrambled.</div>
         </div>
         <p class="caption">Want to see how Shor finds the factors? <a href="/simulator">Open the simulator →</a> Want to protect a real file? <a href="/encrypt">Encrypt a file →</a></p>
       </div>

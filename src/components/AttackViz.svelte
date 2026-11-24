@@ -1,10 +1,6 @@
 <script lang="ts">
   import type { Viz } from '../lib/attack-viz.ts';
   let { viz }: { viz: Viz } = $props();
-
-  // two little bar pictures for the shor step: a repeating pattern, and noise
-  const LOOP = [14, 34, 22, 8, 14, 34, 22, 8, 14, 34, 22, 8];
-  const NOISE = [22, 8, 36, 14, 28, 10, 34, 20, 12, 30, 16, 26];
 </script>
 
 {#if viz.kind === 'aes'}
@@ -76,8 +72,8 @@
 {:else if viz.kind === 'mix'}
   <div class="viz">
     <div class="stack">
-      <div class="vb key"><small>X25519 secret</small>32 bytes</div>
-      <div class="vb key"><small>ML-KEM secret</small>32 bytes</div>
+      <div class="vb key"><small>Elliptic-curve secret (toy X25519)</small>32 bytes</div>
+      <div class="vb key"><small>ML-KEM-768 secret (real)</small>32 bytes</div>
     </div>
     <span class="va"><i>→</i><small>mixed (HKDF-SHA256)</small></span>
     <div class="vb key"><small>AES-256 key</small><span class="mono">{viz.keyHex}…</span></div>
@@ -86,33 +82,42 @@
   </div>
   <p class="vnote">The key depends on both secrets. If either one is wrong, the key comes out completely different.</p>
 
-{:else if viz.kind === 'shor2'}
-  <div class="viz col">
-    <div class="lane">
-      <div class="vb"><small>Elliptic curve</small>X25519</div>
-      <span class="va"><i>→</i></span>
-      <svg class="loopbars" viewBox="0 0 120 44" aria-label="a repeating pattern">
-        {#each LOOP as h, i}<rect x={i * 10 + 1} y={44 - h} width="7" height={h} rx="1.5" fill="#d92d4b" />{/each}
-      </svg>
-      <span class="va"><i>→</i></span>
-      <div class="vb bad"><small>Shor finds the loop</small>secret recovered</div>
-    </div>
-    <div class="lane">
-      <div class="vb"><small>Lattice</small>ML-KEM-768</div>
-      <span class="va"><i>→</i></span>
-      <svg class="loopbars" viewBox="0 0 120 44" aria-label="noise with no pattern">
-        {#each NOISE as h, i}<rect x={i * 10 + 1} y={44 - h} width="7" height={h} rx="1.5" fill="#98a1b3" />{/each}
-      </svg>
-      <span class="va"><i>→</i></span>
-      <div class="vb ok"><small>No loop to find</small>secret stays hidden</div>
-    </div>
+{:else if viz.kind === 'ecdlp'}
+  <div class="viz">
+    <div class="vb lock"><small>Bob's public point B</small>({viz.B.x}, {viz.B.y})</div>
+    <span class="va"><i>→</i><small>Shor ({viz.registerQubits} + {viz.registerQubits} + {viz.pointQubits} qubits)</small></span>
+    <div class="vb"><small>Measured (u, v)</small>({viz.shot.u}, {viz.shot.v})</div>
+    <span class="va"><i>→</i><small>k = v ÷ u (mod {viz.curve.n})</small></span>
+    <div class="vb bad"><small>Bob's secret k</small>{viz.k}</div>
+    <span class="va"><i>→</i><small>k × Alice's point</small></span>
+    <div class="vb bad"><small>Shared secret</small>{viz.matches ? 'recovered ✓' : 'wrong ✕'}</div>
   </div>
-  <p class="vnote">Shor's algorithm finds repeating patterns. X25519 hides one, so it breaks. ML-KEM hides no pattern, so Shor has nothing to find.</p>
+  <p class="vnote">The toy curve is y² = x³ + {viz.curve.a}x + {viz.curve.b} over the numbers mod {viz.curve.p}, with {viz.curve.n} points. Shor used only the public points. It needed {viz.shotsUsed} measurement{viz.shotsUsed === 1 ? '' : 's'}. The secret k is used only at the end, to check the answer.</p>
+
+{:else if viz.kind === 'spectrum'}
+  <div class="viz col">
+    {#each [viz.loop, viz.noLoop] as s}
+      <div class="spec">
+        <div class="spec-head">
+          <b>{s.title}</b>
+          <span class="spec-score" class:bad={s.valid > 0} class:ok={s.valid === 0}>{s.valid} of {s.shots} shots found a loop</span>
+        </div>
+        <svg class="spectrum" viewBox="0 0 256 64" preserveAspectRatio="none" role="img" aria-label="chance of each measured value">
+          <line x1="0" y1="63.5" x2="256" y2="63.5" stroke="#98a1b3" stroke-width="1" vector-effect="non-scaling-stroke" />
+          {#each s.blocks as v, i}
+            <rect x={i} y={63 - (v / viz.max) * 58} width="0.85" height={Math.max(0.5, (v / viz.max) * 58)} fill={s.color} />
+          {/each}
+        </svg>
+        <div class="spec-axis"><span>{s.caption}</span><span>measured value k →</span></div>
+      </div>
+    {/each}
+  </div>
+  <p class="vnote">What this shows: Shor's method only works when a function has a hidden loop. aˣ mod N has one, so the measurements pile up on spikes. For ML-KEM there is no such function to give it, so we gave it a scrambled one seeded with the real ML-KEM public key, and it found nothing. What it does not show: a proof that ML-KEM is unbreakable. Nobody has found a quantum attack on it, which is not the same as proving none exists.</p>
 
 {:else if viz.kind === 'wrongkey'}
   <div class="viz">
     <div class="stack">
-      <div class="vb bad"><small>X25519 secret</small>Eve has it</div>
+      <div class="vb bad"><small>Curve secret</small>Eve broke it</div>
       <div class="vb"><small>ML-KEM secret</small>Eve can only guess</div>
     </div>
     <span class="va"><i>→</i><small>mixed</small></span>
@@ -122,4 +127,7 @@
     <span class="va"><i>→</i><small>AES-256-GCM</small></span>
     <div class="vb ok"><small>Tag check</small>fails ✕</div>
   </div>
+  {#if viz.controlOk}
+    <p class="vnote">Control test: if Eve also had the real ML-KEM secret, her key would be right and the file would open. So the ML-KEM half is the only thing standing between Eve and the data.</p>
+  {/if}
 {/if}

@@ -33,11 +33,16 @@ Pick a toy RSA key and watch a simulated quantum circuit factor it, one step at 
 Follow one message (or file) through two attacks, one after the other.
 
 - **Act 1, protected by RSA:** the data is encrypted with AES-256-GCM, the AES key is locked with RSA, Eve records it, years later Shor factors the key, and Eve decrypts everything.
-- **Act 2, protected by the hybrid:** the same data is encrypted again, this time with a key from X25519 + ML-KEM-768. Shor breaks X25519 but has nothing to find in ML-KEM, so the data stays scrambled.
+- **Act 2, protected by the hybrid:** the same data is encrypted again, this time with a key from an elliptic-curve exchange + ML-KEM-768. Then Eve attacks it with real simulations:
+  - Shor's *discrete-log* algorithm recovers the elliptic-curve secret from the public point alone (on a toy curve, since a simulator can't attack real X25519).
+  - The same quantum period-finding is run on a function with a hidden loop and on one seeded with the real ML-KEM public key: spikes and valid loops on one, noise and none on the other.
+  - Eve's key is still wrong, so AES-GCM rejects it. A control test shows the ML-KEM half is the only thing missing.
 
-Every step has a small diagram built from the real numbers of that run.
+Every step has a small diagram built from the real numbers of that run, and every attack in the demo is a real computation, not a drawing.
 
-![Attack demo](docs/screenshots/attack.png)
+![Attack demo, Act 1](docs/screenshots/attack.png)
+
+![Attack demo, Act 2](docs/screenshots/attack-act2.png)
 
 ### 3. Encrypt a file
 
@@ -73,7 +78,7 @@ Other commands:
 npm run build      # static site in dist/
 npm run preview    # serve the built site
 npm run check      # strict type check of .ts, .svelte and .astro files
-npm test           # 27 simulator checks + 16 hybrid protocol checks
+npm test           # 27 simulator + 16 hybrid protocol + 15 elliptic-curve and attack checks
 npm run test:real  # same protocol with the real ML-KEM-768 + X25519
 ```
 
@@ -87,6 +92,9 @@ src/
   components/       Simulator.svelte, Attack.svelte, AttackViz.svelte, Encrypt.svelte
   lib/
     shor-core.ts    the simulator engine: state vector, QFT, continued fractions, toy RSA
+    shor-ecdlp.ts   Shor's discrete-log algorithm, simulated, for the toy elliptic curve
+    shor-period.ts  period finding for any function (a loop vs. no loop)
+    toy-ec.ts       the toy elliptic curve that stands in for X25519 in the attack demo
     simulator.ts    the simulator page logic
     charts.ts       bar and line charts (Chart.js)
     circuit.ts      the circuit drawing (SVG)
@@ -98,7 +106,7 @@ test/               tests for the simulator and the hybrid protocol
 docs/               developer notes and the screenshots above
 ```
 
-For how the pages fit together and what each one should (and shouldn't) contain, see [`docs/DEV-attack-and-encrypt.md`](docs/DEV-attack-and-encrypt.md).
+- **How the pages fit together** and what each one should (and shouldn't) contain: [`docs/DEV-attack-and-encrypt.md`](docs/DEV-attack-and-encrypt.md).
 
 ## Built with
 
@@ -113,7 +121,8 @@ For how the pages fit together and what each one should (and shouldn't) contain,
 - **This is a learning project.** The simulator runs on toy-sized numbers (N up to 511). It does not break real RSA, and it makes no claim about quantum speed-up.
 - It is a classical program that simulates an ideal quantum circuit. The modular exponentiation step is computed with normal code, which a real quantum machine would have to do with many extra qubits and gates.
 - A real attack on RSA-2048 needs a large, fault-tolerant quantum computer that does not exist today. A 2025 estimate by Gidney puts it at under a million noisy qubits ([arXiv:2505.15917](https://arxiv.org/abs/2505.15917)).
-- In the attack demo, the X25519 secret is handed to Eve, because the toy simulator cannot break a real elliptic curve. The ML-KEM result is an illustration, not a proof that ML-KEM is unbreakable.
+- In the attack demo, X25519 is replaced by a **toy elliptic curve with 229 points**, because no simulator can attack the real curve (about 2²⁵⁵ points; published estimates say roughly 2,300 logical qubits). The Encrypt page still uses the real X25519.
+- Shor's algorithm does not apply to ML-KEM, because there is no hidden loop to find. The ML-KEM experiment gives Shor a scrambled function seeded with the real public key and shows it finds nothing. **That is a real run, but it is not a proof** that ML-KEM is secure. No quantum attack is known, which is not the same as none existing.
 - The encryption tool has **not been audited**. Do not use it for real secrets.
 
 ## Why it matters

@@ -147,6 +147,25 @@ export function analyze(a: number, N: number, t: number): Analysis {
     list.push(x);
     y = (y * a) % N;
   }
+  return finishAnalysis(a, N, t, classes, classicalOrder(a, N));
+}
+
+// the same experiment for any function f, not just a^x mod n.
+// if f has a hidden loop, the measurements pile up on spikes. if it doesn't, they don't
+export function analyzeFunction(f: (x: number) => number, t: number): Analysis {
+  const Q = 1 << t;
+  const classes = new Map<number, number[]>(); // value of f -> list of x that give it
+  for (let x = 0; x < Q; x++) {
+    const y = f(x);
+    let list = classes.get(y);
+    if (!list) { list = []; classes.set(y, list); }
+    list.push(x);
+  }
+  return finishAnalysis(0, 0, t, classes, null);
+}
+
+function finishAnalysis(a: number, N: number, t: number, classes: Map<number, number[]>, trueOrder: number | null): Analysis {
+  const Q = 1 << t;
   // classes with the same size give the same measurement chances (they only differ by a phase)
   const distCache = new Map<number, Float64Array>();
   function dist(M: number, xs: number[]): Float64Array {
@@ -161,7 +180,7 @@ export function analyze(a: number, N: number, t: number): Analysis {
     return p;
   }
   const targets: TargetClass[] = [...classes.entries()].map(([val, xs]) => ({ y: val, xs, weight: xs.length / Q }));
-  return { a, N, t, Q, targets, classes, dist, trueOrder: classicalOrder(a, N) };
+  return { a, N, t, Q, targets, classes, dist, trueOrder };
 }
 
 function sampleFrom(probs: Float64Array, rng: Rng): number {

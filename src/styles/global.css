@@ -247,13 +247,12 @@ button.run:hover{background:var(--accent);filter:brightness(1.08)}
 .lockrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .lockrow .vb{min-width:110px}
 .lockrow.more{color:var(--muted);font-size:14px;padding-left:4px}
-.rowflex{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.rowflex.eve{padding-left:40%}
+.rowflex{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap}
+.rowflex .vb{min-width:96px}
+.rowflex.eve{flex-direction:column;gap:2px}
+.rowflex.eve .va small{max-width:none}
 .wire{display:flex;flex-wrap:wrap;gap:8px;border-top:2px dashed #98a1b3;border-bottom:2px dashed #98a1b3;padding:8px 10px}
 .pkt{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:4px 9px;font-size:13px}
-.lane{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.lane .vb:first-child{min-width:130px}
-.loopbars{width:120px;height:44px}
 .vnote{margin:8px 0 0;font-size:14px;color:var(--muted);line-height:1.55}
 
 /* encrypt page: even spacing and easier-to-read details */
@@ -285,3 +284,13 @@ input[type=file]::file-selector-button{margin-right:14px;padding:8px 16px;border
 .bars .track{flex:1;min-width:0}
 .bars .track i{height:16px}
 .bars .num2{flex:none;width:52px;text-align:right}
+
+/* attack demo: the two "does shor find a loop" charts */
+.spec{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.spec-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.spec-head b{font-size:15px}
+.spec-score{font-size:14px;font-weight:600;padding:2px 10px;border-radius:99px}
+.spec-score.bad{background:#fdecef;color:#a8142f}
+.spec-score.ok{background:#e9f7ef;color:#136b3a}
+.spectrum{display:block;width:100%;height:84px;background:var(--panel2);border-radius:6px}
+.spec-axis{display:flex;justify-content:space-between;margin-top:6px;font-size:13px;color:var(--muted)}
