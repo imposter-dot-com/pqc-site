@@ -7,7 +7,8 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node test/shor-core.test.ts && node test/hybrid.test.ts && node test/toy-ec.test.ts && node test/hardware.test.ts && node test/modexp.test.ts",
+    "format:styles": "prettier --write \"src/styles/*.ts\"",
+    "test": "node test/shor-core.test.ts && node test/hybrid.test.ts && node test/toy-ec.test.ts && node test/hardware.test.ts && node test/modexp.test.ts && node test/styles.test.ts",
     "test:real": "node test/mlkem.real.test.ts"
   },
   "dependencies": {
@@ -23,6 +24,8 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.0",
     "@types/node": "^22.0.0",
+    "prettier": "^3.10.1",
+    "prettier-plugin-tailwindcss": "^0.8.1",
     "typescript": "^5.6.0"
   }
 }

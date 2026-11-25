@@ -10,7 +10,7 @@ The three pages must not repeat each other. The rule is one idea per page:
 
 ## What each part is for
 
-Every part of the site has one job. If a part has no job, or repeats another part, remove it.
+Every part of the site has one job. If a part has no job, or repeats another part, remove it. **Every button must show a result that says what it did, and a disabled button must say why.**
 
 **Simulator**
 
@@ -34,7 +34,9 @@ Every part of the site has one job. If a part has no job, or repeats another par
 |---|---|
 | Bob creates his keys | The real key sizes and time, and that the cost of the hybrid is size, not time |
 | Alice encrypts | What happens step by step, and what travels in the file header |
-| Bob decrypts, or changes one bit | That AES-GCM rejects any change |
+| Bob decrypts | That the same file comes back (a preview and a download of the decrypted file) |
+| Bob changes one bit, then decrypts | That AES-GCM rejects any change |
+| Why can't Eve just guess the key? | That Shor has nothing to grab in ML-KEM, and that guessing is hopeless: 2^256 keys, and still 2^128 steps with Grover |
 | How the file key is made | That the key depends on both secrets |
 
 **Attack demo:** the consequence of Shor. Act 1 records the data and RSA breaks. Act 2 repeats it with the hybrid: the curve breaks, ML-KEM holds, and the control test shows ML-KEM is the only missing piece.
@@ -133,7 +135,7 @@ The simulator page owns everything about how Shor works, so none of it is repeat
 | `shor/` | The algorithm: `shor-core.ts` (engine), `modexp.ts` (gate-level modular exponentiation), `shor-ecdlp.ts` (elliptic-curve discrete log), `shor-period.ts` (loop vs. no loop). |
 | `crypto/` | The encryption side: `hybrid.ts`, `suite.ts`, `toy-ec.ts`, `bytes.ts`. |
 | `noise/` | Real hardware numbers: `ibm-noise.ts` and `hardware-estimate.ts`. |
-| `ui/` | Page logic and drawing: `simulator.ts`, `charts.ts`, `circuit.ts`, `attack-viz.ts`, and the shared class strings in `ui.ts`. |
+| `ui/` | Page logic and drawing: `simulator.ts`, `charts.ts`, `circuit.ts`, `attack-viz.ts`, and nothing about looks (that is in `src/styles/`). |
 
 Shared pieces live in one place on purpose: `sampleFrom`, `failChance` and `twoQubitCost` are in `shor-core.ts` and reused by `modexp.ts`, `shor-ecdlp.ts` and `hardware-estimate.ts`; `check` and `done` for the tests are in `test/check.ts`.
 
@@ -154,9 +156,11 @@ The guide has 8 steps and only the numbered panels (1 to 5) belong to the break 
 
 ## 4. Styling (Tailwind)
 
-All styling is Tailwind v4 utility classes, in the page markup and in the HTML strings built in code.
-- `src/styles/global.css` has the theme (our colours like `bg-panel2`, `text-muted`, `border-line`, the fonts) and a small `@layer base` for plain elements with no class (`button`, `input`, `select`, `label`, `table`). There is no Tailwind reset (preflight), so a bare border needs an explicit width and colour.
-- `src/lib/ui/ui.ts` holds class strings that repeat (panel, caption, key-value tiles, status colours). Svelte uses `class={ui.panel}`, and code that builds HTML uses `${ui.mono}`. Tailwind finds them because it scans every source file.
+All styling is Tailwind v4, and every class lives in `src/styles/`, not in the markup.
+- `global.css` has the theme (our colours like `bg-panel2`, `text-muted`, `border-line`, the fonts) and a small `@layer base` for plain elements with no class (`button`, `input`, `select`, `label`, `table`). There is no Tailwind reset (preflight), so a bare border needs an explicit width and colour.
+- Each page or component has a style file (`simulator.ts`, `attack.ts`, `encrypt.ts`, `home.ts`, `layout.ts`, `attack-viz.ts`), and `shared.ts` holds what several pages use (panels, number tiles, buttons, status colours). Every element has a name and a comment, and the markup reads `class={css.guideBar}`. Code that builds HTML uses the same names, for example `${shared.mono}`.
+- Each entry is `tw('layout', 'size and spacing', 'text', 'look', 'states')`: the classes are grouped on separate lines. `tw` only joins them. Prettier (with the Tailwind plugin, see `.prettierrc.json`) sorts the classes inside each line. After editing a style file, run `npm run format:styles`.
+- To restyle something, find its name in the markup, then change that entry. Tailwind finds the classes because it scans every source file, including these.
 - Sizes are written as `text-[15px]`, not `text-sm`, because the named sizes also set the line height.
 - Two classes in one element that set the same property (for example `bg-white` and `bg-warn`) clash, and the one that wins is not the one written last. Pick one per element, or use `!` (`border-accent!`).
 - The circuit drawing (`circuit.ts`) is an SVG with its own `<style>` block, so it is not Tailwind.
@@ -164,7 +168,7 @@ All styling is Tailwind v4 utility classes, in the page markup and in the HTML s
 ## 5. Testing
 
 ```
-npm test            # 26 simulator + 16 hybrid protocol + 15 toy-curve and attack + 26 noise checks + 17 full-circuit checks
+npm test            # 26 simulator + 16 hybrid protocol + 15 toy-curve and attack + 26 noise checks + 17 full-circuit checks + 14 style-name checks
 npm run test:real   # 7 checks: the same protocol with the real ML-KEM-768 + X25519
 npm run check       # strict type check (.ts, .svelte, .astro)
 npm run build       # the static site; it makes no network requests, so it works offline
@@ -174,6 +178,7 @@ npm run build       # the static site; it makes no network requests, so it works
 - `test/hybrid.test.ts`: the hybrid protocol with a stand-in KEM (round trip, tampering, wrong keys, the key depends on both secrets).
 - `test/toy-ec.test.ts`: the toy curve (point count checked one by one), the simulated discrete-log attack, the loop-versus-no-loop experiment, and the toy curve inside the real hybrid protocol.
 - `test/modexp.test.ts`: the adder, the whole circuit against a^s mod N (work qubits back to 0), the noiseless full circuit against the shortcut (N = 15 spikes, N = 21), and the gate-error rates.
+- `test/styles.test.ts`: every `css.name` and `shared.name` used in the markup exists in the style files (the type checker does not look inside Svelte templates), and no style is empty.
 - `test/hardware.test.ts`: the real IBM noise numbers (they make sense), the gate counting and estimate maths, and the gate-noise simulation (clean-run rate matches the estimate, errors hurt, state stays normalised).
 - `test/mlkem.real.test.ts`: the real libraries.
 

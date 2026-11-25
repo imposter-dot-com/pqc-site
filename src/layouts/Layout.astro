@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import { layoutStyles as css } from '../styles/layout.ts';
 interface Props { title: string; subtitle?: string; active?: string; bare?: boolean }
 const { title, subtitle = '', active = '', bare = false } = Astro.props;
 const links = [['/', 'Home'], ['/simulator', 'Shor simulator'], ['/encrypt', 'Encrypt a file'], ['/attack', 'Attack demo']];
@@ -12,14 +13,14 @@ const links = [['/', 'Home'], ['/simulator', 'Shor simulator'], ['/encrypt', 'En
     <title>{title} · Quantum Threats</title>
   </head>
   <body>
-    <nav class="flex flex-wrap items-center gap-1 px-8 py-3 bg-panel border-b border-line">
-      <span class="font-bold mr-[18px]">Quantum Threats</span>
+    <nav class={css.nav}>
+      <span class={css.brand}>Quantum Threats</span>
       {links.map(([href, label]) => (
-        <a href={href} class:list={['text-[15px] no-underline px-3 py-1.5 rounded-lg font-medium', active === href ? 'text-accent bg-accent-soft' : 'text-muted hover:text-ink hover:bg-panel2']}>{label}</a>
+        <a href={href} class:list={[css.link, active === href ? css.linkOn : css.linkOff]}>{label}</a>
       ))}
     </nav>
-    <div class="max-w-[1500px] mx-auto px-8 pt-7 pb-16">
-      {!bare && <header class="mb-[18px]"><h1 class="m-0 mb-1 text-[28px] font-bold tracking-[-.01em]">{title}</h1>{subtitle && <p class="m-0 text-muted">{subtitle}</p>}</header>}
+    <div class={css.wrap}>
+      {!bare && <header class="mb-[18px]"><h1 class={css.title}>{title}</h1>{subtitle && <p class={css.subtitle}>{subtitle}</p>}</header>}
       <slot />
     </div>
   </body>

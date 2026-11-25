@@ -36,7 +36,9 @@ A real, working hybrid encryption tool.
 
 - Bob creates his X25519 and ML-KEM-768 key pairs.
 - Alice encrypts any file in the browser: a fresh AES-256-GCM key is made from both key exchanges, and the file is saved as a `.pqenc` file.
-- Bob decrypts it. A "change one bit" button shows AES-GCM catching tampering.
+- Bob decrypts it and gets the same file back, with a preview and a download. A "change one bit" button shows AES-GCM catching tampering.
+- A panel shows why guessing the key is hopeless (2²⁵⁶ keys, and still 2¹²⁸ steps even with a quantum computer), while Shor's algorithm breaks RSA and X25519 directly.
+- Every button shows a result that says what it did, and a disabled button says why.
 
 ![Encrypt a file](docs/screenshots/encrypt.png)
 
@@ -80,7 +82,7 @@ Other commands:
 npm run build      # static site in dist/
 npm run preview    # serve the built site
 npm run check      # strict type check of .ts, .svelte and .astro files
-npm test           # 26 simulator + 16 hybrid protocol + 15 elliptic-curve and attack + 26 noise checks + 17 full-circuit checks
+npm test           # 26 simulator + 16 hybrid protocol + 15 elliptic-curve and attack + 26 noise checks + 17 full-circuit checks + 14 style-name checks
 npm run test:real  # same protocol with the real ML-KEM-768 + X25519
 ```
 
@@ -111,8 +113,12 @@ src/
       charts.ts       bar and line charts (Chart.js)
       circuit.ts      the circuit drawing (SVG)
       attack-viz.ts   types for the attack demo diagrams
-      ui.ts           shared Tailwind class strings (panel, caption, key-value tiles...)
-  styles/           global.css: the Tailwind theme (our colours, fonts) and a small base layer
+  styles/           everything about how the site looks (Tailwind)
+    global.css      the theme (our colours, fonts) and a small base layer
+    tw.ts           a tiny helper that groups classes on separate lines
+    shared.ts       styles used on more than one page (panels, number tiles, buttons, status colours)
+    layout.ts, home.ts, simulator.ts, attack.ts, attack-viz.ts, encrypt.ts
+                    one file per page or component: every element has a name and a comment
 test/               tests for the simulator and the hybrid protocol (check.ts is the shared test helper)
 docs/               developer notes and the screenshots above
 ```

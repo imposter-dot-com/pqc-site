@@ -10,7 +10,8 @@
   import AttackViz from './AttackViz.svelte';
   import type { Viz } from '../lib/ui/attack-viz.ts';
   import { utf8, randomBytes, toHex, equalBytes } from '../lib/crypto/bytes.ts';
-  import { ui } from '../lib/ui/ui.ts';
+  import { shared } from '../styles/shared.ts';
+  import { attackStyles as css } from '../styles/attack.ts';
 
   // ---- what alice sends: a text message or a file ----
   let mode = $state<'text' | 'file'>('text');
@@ -52,15 +53,21 @@
   const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms));
   const canStart = $derived(mode === 'text' ? secret.length > 0 : !!fileName);
 
+  // what the last click did when it was not a step (for example, that typing restarted the walkthrough)
+  let notice = $state('');
+
   function reset(): void {
-    step = 0; outs = []; w = {};
+    step = 0; outs = []; w = {}; notice = '';
     if (url) { URL.revokeObjectURL(url); url = ''; }
   }
-  function setMode(m: 'text' | 'file'): void { mode = m; reset(); }
+  // start again because the input changed, and say so if there was progress to lose
+  function restartBecause(why: string): void { const hadProgress = step > 0; reset(); if (hadProgress) notice = why; }
+  function startOver(): void { reset(); notice = 'Started over. Press Start on step 1.'; }
+  function setMode(m: 'text' | 'file'): void { restartBecause('You switched what Alice sends, so the walkthrough restarted from step 1.'); mode = m; }
   async function onFile(ev: Event): Promise<void> {
     const f = (ev.target as HTMLInputElement).files?.[0];
     if (!f) return;
-    reset();
+    restartBecause('A new file was chosen, so the walkthrough restarted from step 1.');
     fileName = f.name;
     fileBytes = new Uint8Array(await f.arrayBuffer());
   }
@@ -259,7 +266,7 @@
 
   async function runNext(): Promise<void> {
     if (busy || step >= STEPS.length) return;
-    busy = true;
+    busy = true; notice = '';
     try {
       const out = await STEPS[step]!.run();
       outs = [...outs.slice(0, step), out];
@@ -273,19 +280,19 @@
   }
 </script>
 
-<div class="flex flex-col gap-5">
-  <div class="{ui.panel} grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-5 items-end max-[900px]:grid-cols-1 [&_label]:mt-0">
+<div class={css.page}>
+  <div class={css.setup}>
     <div>
       <label for="mode-text">What does Alice send?</label>
-      <div class={ui.seg}>
-        <button id="mode-text" class={mode === 'text' ? ui.segOn : ui.segBtn} onclick={() => setMode('text')}>Text message</button>
-        <button class={mode === 'file' ? ui.segOn : ui.segBtn} onclick={() => setMode('file')}>File</button>
+      <div class={shared.seg}>
+        <button id="mode-text" class={mode === 'text' ? shared.segOn : shared.segBtn} onclick={() => setMode('text')}>Text message</button>
+        <button class={mode === 'file' ? shared.segOn : shared.segBtn} onclick={() => setMode('file')}>File</button>
       </div>
     </div>
     <div>
       {#if mode === 'text'}
         <label for="secret">Message</label>
-        <input id="secret" type="text" bind:value={secret} maxlength="60" oninput={reset}>
+        <input id="secret" type="text" bind:value={secret} maxlength="60" oninput={() => restartBecause('The message changed, so the walkthrough restarted from step 1.')}>
       {:else}
         <label for="f">Choose a file (it stays in your browser)</label>
         <input id="f" type="file" onchange={onFile}>
@@ -297,41 +304,43 @@
         {#each PQ as pair, i}<option value={i}>{pair[0]} × {pair[1]} → N = {pair[0] * pair[1]}</option>{/each}
       </select>
     </div>
-    <button onclick={reset} disabled={step === 0}>Start over</button>
+    <button onclick={startOver} disabled={step === 0}>Start over</button>
   </div>
+  {#if notice}<div class={shared.resultGood}>{notice}</div>{/if}
 
-  <div class="flex flex-col gap-3.5">
+  <div class={css.flow}>
     {#each [1, 2] as act}
       <div>
-        <h2 class="m-0 text-[21px] {act === 1 ? 'mt-1.5' : 'mt-[18px]'}">{act === 1 ? 'Act 1: today, protected by RSA' : 'Act 2: the fix, protected by the hybrid (elliptic curve + ML-KEM-768)'}</h2>
+        <h2 class="{css.actTitle} {act === 1 ? css.actFirst : css.actLater}">{act === 1 ? 'Act 1: today, protected by RSA' : 'Act 2: the fix, protected by the hybrid (elliptic curve + ML-KEM-768)'}</h2>
       </div>
       {#each STEPS as s, i}
         {#if s.act === act}
-          <div class="flex gap-4 items-start bg-panel border rounded-xl px-[22px] py-[18px] {i === step ? 'border-accent shadow-[0_0_0_3px_var(--color-accent-ring)]' : 'border-line shadow-[0_1px_2px_rgba(16,24,40,.04)]'} {i > step ? 'opacity-45' : ''}" data-current={i === step ? '' : undefined}>
-            <span class="inline-flex items-center justify-center rounded-full text-white font-bold align-middle flex-none mr-2.5 mt-0.5 size-[26px] text-[13px] {i < step ? 'bg-green' : 'bg-accent'}">{i < step ? '✓' : i + 1}</span>
-            <div class="min-w-0 flex-1">
+          <div class="{css.stepCard} {i === step ? css.stepCurrent : css.stepIdle} {i > step ? css.stepTodo : ''}" data-current={i === step ? '' : undefined}>
+            <span class="{css.stepNumber} {i < step ? css.stepNumberDone : css.stepNumberOpen}">{i < step ? '✓' : i + 1}</span>
+            <div class={css.stepBody}>
               <b class="text-[17px]">{s.title}</b>
-              <p class="mt-1 mb-0 text-muted text-[15px]">{s.text}</p>
+              <p class={css.stepText}>{s.text}</p>
 
               {#if i <= step && outs[i]}
                 {@const o = outs[i]!}
-                <div class="mt-3.5 flex flex-col gap-3 leading-[1.6]">
+                <div class={css.stepOutput}>
                   {#if o.viz}<div><AttackViz viz={o.viz} /></div>{/if}
                   <div>{o.note}</div>
                   {#if o.reads}
                     <div>
-                      <span class="block text-[13px] font-medium text-muted mb-[5px]">What Eve reads</span>
-                      <div class="{ui.reads} {o.reads.kind === 'bad' ? ui.readsBad : ui.readsOk}">{o.reads.text}</div>
-                      {#if o.reads.kind === 'bad' && url}<p class={ui.caption}><a href={url} download={'recovered-' + fileName}>Download the file Eve recovered</a></p>{/if}
+                      <span class={css.outputLabel}>What Eve reads</span>
+                      <div class={o.reads.kind === 'bad' ? shared.readsBad : shared.readsOk}>{o.reads.text}</div>
+                      {#if o.reads.kind === 'bad' && url}<p class={shared.caption}><a href={url} download={'recovered-' + fileName}>Download the file Eve recovered</a></p>{/if}
                     </div>
                   {/if}
                 </div>
               {/if}
 
               {#if i === step}
-                <button class="{ui.accentBtn} hover:brightness-[1.07] mt-3.5 px-7 py-[11px]" onclick={runNext} disabled={busy || !canStart}>
+                <button class={css.nextButton} onclick={runNext} disabled={busy || !canStart}>
                   {busy ? 'Working…' : i === 0 ? 'Start' : outs[i]?.retry ? 'Try again' : 'Next step'}
                 </button>
+                {#if !canStart}<p class={shared.caption}>{mode === 'text' ? 'Type a message first.' : 'Choose a file first.'}</p>{/if}
               {/if}
             </div>
           </div>
@@ -340,13 +349,13 @@
     {/each}
 
     {#if step >= STEPS.length}
-      <div class={ui.panel} data-summary>
-        <h2 class={ui.panelTitle}>What we learned</h2>
-        <div class="grid grid-cols-2 gap-5 mt-1.5 max-[900px]:grid-cols-1">
-          <div class="{ui.reads} {ui.readsBad}"><b>RSA:</b> Shor factored N, so Eve got the private key and read the data.</div>
-          <div class="{ui.reads} {ui.readsOk}"><b>Hybrid:</b> Shor really recovered the elliptic-curve secret, but found no loop in ML-KEM, so the key stayed incomplete and the data stayed scrambled.</div>
+      <div class={shared.panel} data-summary>
+        <h2 class={shared.panelTitle}>What we learned</h2>
+        <div class={css.summary}>
+          <div class={shared.readsBad}><b>RSA:</b> Shor factored N, so Eve got the private key and read the data.</div>
+          <div class={shared.readsOk}><b>Hybrid:</b> Shor really recovered the elliptic-curve secret, but found no loop in ML-KEM, so the key stayed incomplete and the data stayed scrambled. The only way left is guessing the 256-bit ML-KEM secret, which means trying up to 2<sup>256</sup> keys: not possible.</div>
         </div>
-        <p class={ui.caption}>Want to see how Shor finds the factors? <a href="/simulator">Open the simulator →</a> Want to protect a real file? <a href="/encrypt">Encrypt a file →</a></p>
+        <p class={shared.caption}>Want to see how Shor finds the factors? <a href="/simulator">Open the simulator →</a> Want to protect a real file? <a href="/encrypt">Encrypt a file →</a></p>
       </div>
     {/if}
   </div>

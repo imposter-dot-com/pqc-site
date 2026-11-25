@@ -5,7 +5,8 @@ import type { Attempt, ShorResult, RSAKey } from '../shor/shor-core.ts';
 import { COLORS, barChart, binned, clearCanvas } from './charts.ts';
 import type { Bar } from './charts.ts';
 import { circuitCaption, circuitSvg } from './circuit.ts';
-import { ui } from './ui.ts';
+import { shared } from '../../styles/shared.ts';
+import { simulatorStyles as css } from '../../styles/simulator.ts';
 import { fullEstimate, hardwareEstimate } from '../noise/hardware-estimate.ts';
 import { buildModExp, runFullShot } from '../shor/modexp.ts';
 import type { ModExpCircuit } from '../shor/modexp.ts';
@@ -213,8 +214,8 @@ function resetResults(): void {
 
 function setStatus(kind: string, title: string, small: string): void {
   const el = $('status');
-  el.className = `${ui.status.base} ${ui.status[kind]}`;
-  el.innerHTML = `${title}<small class="${ui.statusSmall}">${small}</small>`;
+  el.className = `${shared.status.base} ${shared.status[kind]}`;
+  el.innerHTML = `${title}<small class="${shared.statusSmall}">${small}</small>`;
 }
 
 // one-qubit gates are about 30x better than two-qubit gates on real chips, so they follow the two-qubit slider
@@ -300,12 +301,12 @@ function showBroken(p: number, q: number): void {
   setText('privkey', `d = ${d}`);
   setStatus('broken', 'Key broken', `We factored N = ${N}, unlocked the key, and read the message. Real keys are far bigger.`);
   // the three steps Eve takes, each with its real numbers (all in decimal)
-  const nums = (list: number[]): string => `<span class="${ui.mono}">${list.join(' ')}</span>`;
+  const nums = (list: number[]): string => `<span class="${shared.mono}">${list.join(' ')}</span>`;
   $('dec').innerHTML =
-    `<div class="flex flex-col gap-2.5 leading-[1.5]">` +
+    `<div class="${css.outcomeSteps}">` +
     `<div><b>First, Shor factors N:</b> ${N} = ${p} × ${q}. Then φ = (${p} − 1)(${q} − 1) = ${phi}, and d = ${d} because ${rsa.e} × ${d} = ${rsa.e * d} = ${Math.floor((rsa.e * d) / phi)} × ${phi} + 1.</div>` +
     `<div><b>Then d unlocks the key:</b> each number c becomes c<sup>${d}</sup> mod ${N}, for example ${lockedKey[0]}<sup>${d}</sup> mod ${N} = ${recovered[0]}.<br>${nums(lockedKey)}<br>becomes ${nums(recovered)}</div>` +
-    `<div><b>Finally, the key unlocks the message:</b>${first ? ` each number is mixed with the key number (XOR), which undoes the scrambling, for example ${sealed[0]} XOR ${recovered[0]} = ${sealed[0]! ^ recovered[0]!}, which is the letter ${first}.` : ''}<br>${nums(sealed)}<br>becomes <b class="text-bad-ink text-[16px]">${plain || '(empty message)'}</b></div>` +
+    `<div><b>Finally, the key unlocks the message:</b>${first ? ` each number is mixed with the key number (XOR), which undoes the scrambling, for example ${sealed[0]} XOR ${recovered[0]} = ${sealed[0]! ^ recovered[0]!}, which is the letter ${first}.` : ''}<br>${nums(sealed)}<br>becomes <b class="${css.recoveredText}">${plain || '(empty message)'}</b></div>` +
     `</div>`;
 }
 
@@ -331,7 +332,7 @@ function renderTabs(): void {
   STAGES.forEach((name, i) => {
     const button = document.createElement('button');
     button.textContent = name;
-    button.className = i === stageIdx ? ui.tabOn : ui.tab;
+    button.className = i === stageIdx ? shared.tabOn : shared.tab;
     button.onclick = () => { stageIdx = i; renderTabs(); renderHist(); };
     el.appendChild(button);
   });
@@ -511,12 +512,12 @@ function renderTable(): void {
     const row = document.createElement('tr');
     row.innerHTML =
       `<td>${s.i}</td>` +
-      `<td class="${ui.mono}">${s.k}</td>` +
-      `<td class="${ui.mono}">${s.k}/${Q}</td>` +
-      `<td class="${ui.mono}">${s.k === 0 ? '-' : fractions}</td>` +
-      `<td class="${ui.mono} ${s.r ? 'text-green' : 'text-muted'}">${s.r || '-'}</td>` +
-      `<td class="${ui.mono} ${s.gateErrors ? 'text-bad-ink' : 'text-muted'}">${s.gateErrors}</td>` +
-      `<td>${s.r ? `<span class="${ui.pill}">a<sup>r</sup> = 1</span>` : ''}</td>`;
+      `<td class="${shared.mono}">${s.k}</td>` +
+      `<td class="${shared.mono}">${s.k}/${Q}</td>` +
+      `<td class="${shared.mono}">${s.k === 0 ? '-' : fractions}</td>` +
+      `<td class="${shared.mono} ${s.r ? 'text-green' : 'text-muted'}">${s.r || '-'}</td>` +
+      `<td class="${shared.mono} ${s.gateErrors ? 'text-bad-ink' : 'text-muted'}">${s.gateErrors}</td>` +
+      `<td>${s.r ? `<span class="${shared.pill}">a<sup>r</sup> = 1</span>` : ''}</td>`;
     body.appendChild(row);
   }
 }
