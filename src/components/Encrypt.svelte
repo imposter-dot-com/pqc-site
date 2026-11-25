@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { realSuite, MLKEM_PUBLIC_LEN } from '../lib/suite.ts';
-  import { generateReceiverKeys, publicBundle, encryptFile, decryptFile, parseFile } from '../lib/hybrid.ts';
-  import type { ReceiverKeys, Parsed } from '../lib/hybrid.ts';
-  import { toHex, equalBytes } from '../lib/bytes.ts';
+  import { realSuite, MLKEM_PUBLIC_LEN } from '../lib/crypto/suite.ts';
+  import { generateReceiverKeys, publicBundle, encryptFile, decryptFile, parseFile } from '../lib/crypto/hybrid.ts';
+  import type { ReceiverKeys, Parsed } from '../lib/crypto/hybrid.ts';
+  import { toHex, equalBytes } from '../lib/crypto/bytes.ts';
+  import { ui } from '../lib/ui/ui.ts';
 
   interface Step { name: string; ms: number; bytes?: number }
 
@@ -61,82 +62,77 @@
     }
     busy = false;
   }
-  const maxBar = 1216;
 </script>
 
-<div class="two">
-  <div class="stack">
-    <div class="panel flowy">
-      <h2>Bob creates his keys</h2>
-      <p class="caption">Bob (the receiver) makes an X25519 and an ML-KEM-768 key pair and shares the public halves. They don't encrypt the file directly. They let the sender agree on a fresh AES key in the next step, and Bob's private halves open the file at the end. The keys stay in this page's memory.</p>
+<div class="grid grid-cols-2 gap-6 items-start max-[900px]:grid-cols-1">
+  <div class="flex flex-col gap-2 min-w-0">
+    <div class="{ui.panel} {ui.flowy}">
+      <h2 class={ui.panelTitle}>Bob creates his keys</h2>
+      <p class={ui.caption}>Bob (the receiver) makes an X25519 and an ML-KEM-768 key pair and shares the public halves. They don't encrypt the file directly. They let the sender agree on a fresh AES key in the next step, and Bob's private halves open the file at the end. The keys stay in this page's memory.</p>
       <button onclick={genKeys} disabled={busy}>Create Bob's keys</button>
       {#if keys}
-        <div class="kv">
-          <div><b>Public key bundle</b><span>{publicBundle(keys).length} B</span></div>
-          <div><b>ML-KEM-768 public</b><span>{keys.pkM.length} B</span></div>
-          <div><b>X25519 public</b><span>{keys.pkX.length} B</span></div>
-          <div><b>Key generation</b><span>{keyMs.toFixed(1)} ms</span></div>
+        <div class="grid grid-cols-2 gap-3.5">
+          <div class={ui.kvCell}><b class={ui.kvLabel}>Public key bundle</b><span class={ui.kvValue}>{publicBundle(keys).length} B</span></div>
+          <div class={ui.kvCell}><b class={ui.kvLabel}>ML-KEM-768 public</b><span class={ui.kvValue}>{keys.pkM.length} B</span></div>
+          <div class={ui.kvCell}><b class={ui.kvLabel}>X25519 public</b><span class={ui.kvValue}>{keys.pkX.length} B</span></div>
+          <div class={ui.kvCell}><b class={ui.kvLabel}>Key generation</b><span class={ui.kvValue}>{keyMs.toFixed(1)} ms</span></div>
         </div>
-        <div class="sub">Public key bundle (first 48 bytes)</div>
-        <div class="hex mono">{toHex(publicBundle(keys).slice(0, 48))}...</div>
-        {#if keys.pkM.length !== MLKEM_PUBLIC_LEN}<div class="result bad">Unexpected ML-KEM public key size.</div>{/if}
+        <p class={ui.caption}>The main cost of the hybrid is size, not time.</p>
+        <div class="text-[15px] font-semibold text-ink">Public key bundle (first 48 bytes)</div>
+        <div class="font-mono text-[14px] break-all bg-panel2 rounded-lg p-2.5">{toHex(publicBundle(keys).slice(0, 48))}...</div>
+        {#if keys.pkM.length !== MLKEM_PUBLIC_LEN}<div class="{ui.resultBox} {ui.resultBad}">Unexpected ML-KEM public key size.</div>{/if}
       {/if}
     </div>
 
-    <div class="panel flowy">
-      <h2>Alice encrypts a file</h2>
-      <p class="caption">Her browser makes a fresh AES-256 key from Bob's public keys, then encrypts the file with it.</p>
+    <div class="{ui.panel} {ui.flowy}">
+      <h2 class={ui.panelTitle}>Alice encrypts a file</h2>
+      <p class={ui.caption}>Her browser makes a fresh AES-256 key from Bob's public keys, then encrypts the file with it.</p>
       <input type="file" onchange={onFile}>
-      <button class="primary" onclick={doEncrypt} disabled={busy || !keys || !fileName}>Encrypt {fileName || 'file'}</button>
+      <button class={ui.primary} onclick={doEncrypt} disabled={busy || !keys || !fileName}>Encrypt {fileName || 'file'}</button>
       {#if steps.length}
-        <div class="sub">What happened, step by step</div>
-        <div class="steps">
+        <div class="text-[15px] font-semibold text-ink">What happened, step by step</div>
+        <div class="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-3.5">
           {#each steps as s}
-            <div class="step done"><b>{s.name}</b><span>{s.ms.toFixed(2)} ms{s.bytes !== undefined ? ' · ' + fmt(s.bytes) : ''}</span></div>
+            <div class="bg-panel2 rounded-lg px-4 py-3.5"><b class="block text-[15px] leading-[1.35]">{s.name}</b><span class="block mt-1 text-[14px] text-muted">{s.ms.toFixed(2)} ms{s.bytes !== undefined ? ' · ' + fmt(s.bytes) : ''}</span></div>
           {/each}
         </div>
       {/if}
       {#if blob && parsed}
-        <div class="kv">
-          <div><b>Original</b><span>{fmt(plain?.length ?? 0)}</span></div>
-          <div><b>Encrypted file</b><span>{fmt(blob.length)}</span></div>
+        <div class="grid grid-cols-2 gap-3.5">
+          <div class={ui.kvCell}><b class={ui.kvLabel}>Original</b><span class={ui.kvValue}>{fmt(plain?.length ?? 0)}</span></div>
+          <div class={ui.kvCell}><b class={ui.kvLabel}>Encrypted file</b><span class={ui.kvValue}>{fmt(blob.length)}</span></div>
         </div>
-        <div class="sub">File header (this travels with the file)</div>
-        <div class="hdr">
-          <div class="hrow"><span class="hl">File type and version</span><span class="hv m mono">PQE1, version {blob[4]}</span></div>
-          <div class="hrow"><span class="hl">ML-KEM ciphertext ({parsed.ctM.length} bytes, first 24 shown)</span><span class="hv c mono">{toHex(parsed.ctM.slice(0, 24))}…</span></div>
-          <div class="hrow"><span class="hl">Ephemeral X25519 key (32 bytes)</span><span class="hv e mono">{toHex(parsed.ephPub)}</span></div>
-          <div class="hrow"><span class="hl">AES-GCM nonce (12 bytes)</span><span class="hv n mono">{toHex(parsed.nonce)}</span></div>
+        <div class="text-[15px] font-semibold text-ink">File header (this travels with the file)</div>
+        <div class="flex flex-col gap-3.5 bg-panel2 rounded-[10px] px-[18px] py-4">
+          {#each [
+            ['File type and version', 'PQE1, version ' + blob[4], 'text-warn-ink'],
+            [`ML-KEM ciphertext (${parsed.ctM.length} bytes, first 24 shown)`, toHex(parsed.ctM.slice(0, 24)) + '…', 'text-violet'],
+            ['Ephemeral X25519 key (32 bytes)', toHex(parsed.ephPub), 'text-teal-ink'],
+            ['AES-GCM nonce (12 bytes)', toHex(parsed.nonce), 'text-green'],
+          ] as [label, value, color]}
+            <div><span class="block text-[14px] text-muted mb-[3px]">{label}</span><span class="block text-[14px] leading-[1.5] break-all font-mono {color}">{value}</span></div>
+          {/each}
         </div>
-        <p class="dl"><a href={url} download={fileName + '.pqenc'}>Download {fileName}.pqenc</a></p>
+        <p><a class="font-semibold" href={url} download={fileName + '.pqenc'}>Download {fileName}.pqenc</a></p>
       {/if}
-      {#if error}<div class="result bad">{error}</div>{/if}
+      {#if error}<div class="{ui.resultBox} {ui.resultBad}">{error}</div>{/if}
     </div>
 
-    <div class="panel flowy">
-      <h2>Bob decrypts</h2>
-      <div class="row">
+    <div class="{ui.panel} {ui.flowy}">
+      <h2 class={ui.panelTitle}>Bob decrypts</h2>
+      <div class={ui.row}>
         <button onclick={() => doDecrypt(false)} disabled={busy || !blob}>Decrypt</button>
         <button onclick={() => doDecrypt(true)} disabled={busy || !blob}>Change one bit, then decrypt</button>
       </div>
-      {#if result}<div class="result {result.ok ? 'ok' : 'bad'}">{result.text}</div>{/if}
+      {#if result}<div class="{ui.resultBox} {result.ok ? ui.resultOk : ui.resultBad}">{result.text}</div>{/if}
     </div>
   </div>
 
-  <div class="stack">
-    <div class="panel">
-      <h2>Key material sizes (bytes)</h2>
-      <div class="bars">
-        <div class="bar"><em>X25519</em><div class="track"><i style="width:{32 / maxBar * 100}%;background:var(--cyan)"></i></div><span class="num2">32</span></div>
-        <div class="bar"><em>ML-KEM-768</em><div class="track"><i style="width:{1184 / maxBar * 100}%;background:var(--violet)"></i></div><span class="num2">1,184</span></div>
-        <div class="bar"><em>Hybrid (both)</em><div class="track"><i style="width:100%;background:var(--amber)"></i></div><span class="num2">1,216</span></div>
-      </div>
-      <p class="caption">The main cost of the hybrid is size, not time.</p>
-    </div>
-    <div class="panel">
-      <h2>How the file key is made</h2>
-      <p class="caption">K = HKDF-SHA256( ss<sub>ML-KEM</sub> || ss<sub>X25519</sub> || ct<sub>ML-KEM</sub> || eph<sub>X25519</sub> || pk<sub>X25519</sub> )</p>
-      <p class="caption">The file is encrypted with AES-256-GCM using K and a random 12-byte nonce, and the header is authenticated too. A new K is made for every file. If either shared secret is wrong, K is different and decryption is rejected.</p>
+  <div class="flex flex-col gap-2 min-w-0">
+    <div class={ui.panel}>
+      <h2 class={ui.panelTitle}>How the file key is made</h2>
+      <p class={ui.caption}>K = HKDF-SHA256( ss<sub>ML-KEM</sub> || ss<sub>X25519</sub> || ct<sub>ML-KEM</sub> || eph<sub>X25519</sub> || pk<sub>X25519</sub> )</p>
+      <p class={ui.caption}>The file is encrypted with AES-256-GCM using K and a random 12-byte nonce, and the header is authenticated too. A new K is made for every file. If either shared secret is wrong, K is different and decryption is rejected.</p>
     </div>
   </div>
 </div>

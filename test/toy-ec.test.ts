@@ -1,15 +1,14 @@
 // run with: node test/toy-ec.test.ts (node 22.18+ runs typescript directly)
 // tests the toy elliptic curve, the simulated shor attack on it, and the "does shor find a loop" experiment
-import * as S from '../src/lib/shor-core.ts';
-import * as EC from '../src/lib/toy-ec.ts';
-import { shorDiscreteLog } from '../src/lib/shor-ecdlp.ts';
-import { periodExperiment, scrambledFunction } from '../src/lib/shor-period.ts';
-import { establish, recover } from '../src/lib/hybrid.ts';
-import { realSuite } from '../src/lib/suite.ts';
-import { equalBytes } from '../src/lib/bytes.ts';
+import * as S from '../src/lib/shor/shor-core.ts';
+import * as EC from '../src/lib/crypto/toy-ec.ts';
+import { shorDiscreteLog } from '../src/lib/shor/shor-ecdlp.ts';
+import { periodExperiment, scrambledFunction } from '../src/lib/shor/shor-period.ts';
+import { establish, recover } from '../src/lib/crypto/hybrid.ts';
+import { realSuite } from '../src/lib/crypto/suite.ts';
+import { equalBytes } from '../src/lib/crypto/bytes.ts';
+import { check, done } from './check.ts';
 
-let pass = 0, fail = 0;
-function check(name: string, cond: boolean, extra?: unknown): void { if (cond) { pass++; console.log('PASS', name); } else { fail++; console.log('FAIL', name, extra || ''); } }
 const { n, p } = EC.CURVE;
 
 // 1. the curve is what we say it is
@@ -81,5 +80,4 @@ const { n, p } = EC.CURVE;
   check('the measurement chances add up to 1', Math.abs(sum(withLoop.blocks) - 1) < 1e-6 && Math.abs(sum(noLoop.blocks) - 1) < 1e-6);
 }
 
-console.log(`\n${pass} passed, ${fail} failed`);
-if (fail) process.exit(1);
+done();

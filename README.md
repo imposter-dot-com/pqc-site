@@ -2,7 +2,7 @@
 
 **An interactive way to learn how a quantum computer breaks RSA, and how post-quantum encryption keeps your data safe.**
 
-Built with Astro, Svelte, TypeScript and Chart.js. Everything runs in your browser, and nothing is ever uploaded.
+Built with Astro, Svelte, TypeScript, Tailwind CSS and Chart.js. Everything runs in your browser, and nothing is ever uploaded.
 
 ![Home page](docs/screenshots/home.png)
 
@@ -13,8 +13,8 @@ The site has three pages. Each one answers a different question.
 | Page | The question it answers |
 |---|---|
 | **Shor simulator** | *How* does Shor's algorithm break an RSA key? |
-| **Attack demo** | *What does that mean* for data we send today? |
 | **Encrypt a file** | *How do we protect* a real file against it? |
+| **Attack demo** | *What does that mean* for data we send today? |
 
 ### 1. Shor's algorithm simulator
 
@@ -24,11 +24,23 @@ Pick a toy RSA key and watch a simulated quantum circuit factor it, one step at 
 - Four charts that follow the algorithm: the repeating pattern `aˣ mod N`, then the counting register after each stage (superposition, modular exponentiation, QFT, measured shots).
 - A guide that walks you through every step and shows the real numbers from your run: the loop length `r`, the gcd step, the factors, and the private key `d`.
 - A beginner explainer, "How does this break RSA?", with a tiny worked example (N = 15).
-- Noise settings and a noise sweep, to see how errors affect the result.
+- RSA protects a **key**, not the message: the message is locked with a secret key, RSA locks that key, and the outcome panel shows each step Eve takes with the real numbers.
+- Two ways to run the modular exponentiation step: computed directly (fast), or **Full circuit**, built from real X, CNOT and Toffoli gates and simulated gate by gate (N up to 143).
+- Noise settings and presets that use the **real readout and gate errors of IBM quantum computers** (from IBM's published calibration data). A "Toy vs real hardware" pop-up compares the toy key with RSA-2048, estimates what real hardware noise would do to the whole circuit, and lists its sources.
 
 ![Shor simulator](docs/screenshots/simulator.png)
 
-### 2. Attack demo
+### 2. Encrypt a file
+
+A real, working hybrid encryption tool.
+
+- Bob creates his X25519 and ML-KEM-768 key pairs.
+- Alice encrypts any file in the browser: a fresh AES-256-GCM key is made from both key exchanges, and the file is saved as a `.pqenc` file.
+- Bob decrypts it. A "change one bit" button shows AES-GCM catching tampering.
+
+![Encrypt a file](docs/screenshots/encrypt.png)
+
+### 3. Attack demo
 
 Follow one message (or file) through two attacks, one after the other.
 
@@ -43,16 +55,6 @@ Every step has a small diagram built from the real numbers of that run, and ever
 ![Attack demo, Act 1](docs/screenshots/attack.png)
 
 ![Attack demo, Act 2](docs/screenshots/attack-act2.png)
-
-### 3. Encrypt a file
-
-A real, working hybrid encryption tool.
-
-- Bob creates his X25519 and ML-KEM-768 key pairs.
-- Alice encrypts any file in the browser: a fresh AES-256-GCM key is made from both key exchanges, and the file is saved as a `.pqenc` file.
-- Bob decrypts it. A "change one bit" button shows AES-GCM catching tampering.
-
-![Encrypt a file](docs/screenshots/encrypt.png)
 
 ## How Shor's algorithm breaks RSA, in five lines
 
@@ -78,7 +80,7 @@ Other commands:
 npm run build      # static site in dist/
 npm run preview    # serve the built site
 npm run check      # strict type check of .ts, .svelte and .astro files
-npm test           # 27 simulator + 16 hybrid protocol + 15 elliptic-curve and attack checks
+npm test           # 26 simulator + 16 hybrid protocol + 15 elliptic-curve and attack + 26 noise checks + 17 full-circuit checks
 npm run test:real  # same protocol with the real ML-KEM-768 + X25519
 ```
 
@@ -91,18 +93,27 @@ src/
   pages/            the four pages (home, simulator, attack, encrypt)
   components/       Simulator.svelte, Attack.svelte, AttackViz.svelte, Encrypt.svelte
   lib/
-    shor-core.ts    the simulator engine: state vector, QFT, continued fractions, toy RSA
-    shor-ecdlp.ts   Shor's discrete-log algorithm, simulated, for the toy elliptic curve
-    shor-period.ts  period finding for any function (a loop vs. no loop)
-    toy-ec.ts       the toy elliptic curve that stands in for X25519 in the attack demo
-    simulator.ts    the simulator page logic
-    charts.ts       bar and line charts (Chart.js)
-    circuit.ts      the circuit drawing (SVG)
-    hybrid.ts       hybrid key exchange + file format (X25519 + ML-KEM-768 + AES-256-GCM)
-    suite.ts        the real crypto libraries (noble)
-    attack-viz.ts   types for the attack demo diagrams
-  styles/           global.css
-test/               tests for the simulator and the hybrid protocol
+    shor/           the algorithm and its simulators
+      shor-core.ts    the engine: state vector, QFT, continued fractions, toy RSA
+      modexp.ts       the modular exponentiation built from real gates, simulated gate by gate
+      shor-ecdlp.ts   Shor's discrete-log algorithm, simulated, for the toy elliptic curve
+      shor-period.ts  period finding for any function (a loop vs. no loop)
+    crypto/         the encryption side
+      hybrid.ts       hybrid key exchange + file format (X25519 + ML-KEM-768 + AES-256-GCM)
+      suite.ts        the real crypto libraries (noble)
+      toy-ec.ts       the toy elliptic curve that stands in for X25519 in the attack demo
+      bytes.ts        small byte helpers
+    noise/          real hardware numbers
+      ibm-noise.ts    real noise numbers from IBM quantum computers, and where they come from
+      hardware-estimate.ts  a rough estimate of what real hardware noise would do to the circuit
+    ui/             page logic, drawing and styling helpers
+      simulator.ts    the simulator page logic
+      charts.ts       bar and line charts (Chart.js)
+      circuit.ts      the circuit drawing (SVG)
+      attack-viz.ts   types for the attack demo diagrams
+      ui.ts           shared Tailwind class strings (panel, caption, key-value tiles...)
+  styles/           global.css: the Tailwind theme (our colours, fonts) and a small base layer
+test/               tests for the simulator and the hybrid protocol (check.ts is the shared test helper)
 docs/               developer notes and the screenshots above
 ```
 
@@ -119,10 +130,11 @@ docs/               developer notes and the screenshots above
 ## Limits (please read)
 
 - **This is a learning project.** The simulator runs on toy-sized numbers (N up to 511). It does not break real RSA, and it makes no claim about quantum speed-up.
-- It is a classical program that simulates an ideal quantum circuit. The modular exponentiation step is computed with normal code, which a real quantum machine would have to do with many extra qubits and gates.
+- It is a classical program that simulates a quantum circuit. By default the modular exponentiation step is computed with normal code. In Full circuit mode (N up to 143) it is built from real gates and simulated, which a real quantum machine would need many extra qubits for.
 - A real attack on RSA-2048 needs a large, fault-tolerant quantum computer that does not exist today. A 2025 estimate by Gidney puts it at under a million noisy qubits ([arXiv:2505.15917](https://arxiv.org/abs/2505.15917)).
 - In the attack demo, X25519 is replaced by a **toy elliptic curve with 229 points**, because no simulator can attack the real curve (about 2²⁵⁵ points; published estimates say roughly 2,300 logical qubits). The Encrypt page still uses the real X25519.
 - Shor's algorithm does not apply to ML-KEM, because there is no hidden loop to find. The ML-KEM experiment gives Shor a scrambled function seeded with the real public key and shows it finds nothing. **That is a real run, but it is not a proof** that ML-KEM is secure. No quantum attack is known, which is not the same as none existing.
+- The noise in the simulator is a **simple model**: readout flips and random X/Y/Z errors after individual gates. In **Full circuit** mode (N up to 143) the modular exponentiation is built from real X, CNOT and Toffoli gates and simulated gate by gate, so errors can strike anywhere in it. Above that, and in Fast mode, the modular exponentiation is a shortcut and only the QFT has gate errors. Our circuit is a simple ripple-carry design, not the smallest known, and we do not model the extra swaps real chips need to connect distant qubits.
 - The encryption tool has **not been audited**. Do not use it for real secrets.
 
 ## Why it matters

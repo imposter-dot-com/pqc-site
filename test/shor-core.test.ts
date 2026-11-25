@@ -1,7 +1,7 @@
 // run with: node test/shor-core.test.ts (node 22.18+ runs typescript directly)
-import * as S from '../src/lib/shor-core.ts';
-let pass = 0, fail = 0;
-function check(name: string, cond: boolean, extra?: unknown): void { if (cond) { pass++; console.log('PASS', name); } else { fail++; console.log('FAIL', name, extra || ''); } }
+import * as S from '../src/lib/shor/shor-core.ts';
+import { check, done } from './check.ts';
+import { successRate } from './rates.ts';
 
 // 1. our qft built from gates matches the textbook definition (a plain dft)
 {
@@ -82,20 +82,16 @@ for (const N of [15, 21, 33, 35, 55, 77, 143, 221, 391]) {
   check('attacker decrypts toy RSA message', plain === 'HELLO' && d === rsa.d, { plain, d, real: rsa.d });
 }
 
-// 8. noise makes single shots fail more often
+// 8. readout noise makes single shots fail more often (N = 143: a pure guess rarely works)
 {
   const rng = S.makeRng(42);
-  const lv = [0, 0.02, 0.1, 0.3];
-  const sw = S.noiseSweep(143, 2, lv, 'readout', 600, rng);
-  check('readout noise: success falls as noise rises', sw[0] > sw[2] && sw[2] > sw[3], sw);
-  const sd = S.noiseSweep(143, 2, [0, 0.5, 1], 'depol', 600, rng); // n=143: a pure guess rarely works
-  check('depolarizing noise: success falls toward a low floor', sd[0] > sd[1] && sd[1] > sd[2] && sd[2] < 0.25 && sd[2] > 0, sd);
-  console.log('   readout sweep', sw.map(v => v.toFixed(2)).join(' '), '| depol sweep', sd.map(v => v.toFixed(2)).join(' '));
+  const rates = [0, 0.02, 0.1, 0.3].map(readout => successRate(143, 2, { readout }, 600, rng));
+  check('readout noise: success falls as noise rises', rates[0]! > rates[2]! && rates[2]! > rates[3]!, rates);
+  console.log('   readout 0 / 2 / 10 / 30%:', rates.map(v => v.toFixed(2)).join(' '));
 }
 
 // 9. helpers
 check('isPrimePower', S.isPrimePower(9) && S.isPrimePower(13) && !S.isPrimePower(15));
 check('modInverse', S.modInverse(3, 40) === 27);
 
-console.log('\n' + pass + ' passed, ' + fail + ' failed');
-process.exit(fail ? 1 : 0);
+done();

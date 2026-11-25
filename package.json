@@ -7,16 +7,18 @@
     "build": "astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node test/shor-core.test.ts && node test/hybrid.test.ts && node test/toy-ec.test.ts",
+    "test": "node test/shor-core.test.ts && node test/hybrid.test.ts && node test/toy-ec.test.ts && node test/hardware.test.ts && node test/modexp.test.ts",
     "test:real": "node test/mlkem.real.test.ts"
   },
   "dependencies": {
     "@astrojs/svelte": "^7.0.0",
     "@noble/curves": "^2.0.0",
     "@noble/post-quantum": "^0.6.0",
+    "@tailwindcss/vite": "^4.3.5",
     "astro": "^5.0.0",
     "chart.js": "^4.6.2",
-    "svelte": "^5.0.0"
+    "svelte": "^5.0.0",
+    "tailwindcss": "^4.3.5"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.0",

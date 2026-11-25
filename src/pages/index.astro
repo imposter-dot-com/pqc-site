@@ -2,16 +2,16 @@
 import Layout from '../layouts/Layout.astro';
 ---
 <Layout title="Home" active="/" bare>
-  <section class="hero">
-    <span class="eyebrow">Interactive demo · runs entirely in your browser</span>
-    <h1>Quantum Threats to Modern Cryptography</h1>
-    <p>See how a quantum computer breaks RSA, why recorded traffic is at risk today, and how post-quantum encryption protects your data.</p>
+  <section class="text-center max-w-[760px] mx-auto pt-10 pb-9">
+    <span class="inline-block text-[13px] font-semibold text-accent bg-accent-soft px-3 py-[5px] rounded-full mb-4">Interactive demo · runs entirely in your browser</span>
+    <h1 class="m-0 mb-3 text-[length:clamp(28px,4vw,42px)] leading-[1.12] tracking-[-.02em]">Quantum Threats to Modern Cryptography</h1>
+    <p class="m-0 text-muted text-[17px]">See how a quantum computer breaks RSA, why recorded traffic is at risk today, and how post-quantum encryption protects your data.</p>
   </section>
 
-  <div class="cards home">
-    <a class="card" href="/simulator">
-      <div class="art a1">
-        <svg viewBox="0 0 360 150" role="img" aria-label="A number splits into two prime factors">
+  <div class="grid grid-cols-3 gap-6 max-[900px]:grid-cols-1">
+    <a class="group flex flex-col bg-panel border border-line rounded-card pt-5 px-[22px] pb-[22px] no-underline text-ink shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-[border-color,box-shadow] duration-150 hover:border-accent hover:shadow-[0_4px_14px_rgba(47,91,234,.12)]" href="/simulator">
+      <div class="bg-panel2 rounded-[10px] p-2.5 mb-[18px]">
+        <svg class="block w-full h-auto" viewBox="0 0 360 150" role="img" aria-label="A number splits into two prime factors">
           <rect x="20" y="22" width="84" height="40" rx="10" fill="#eaf0ff" stroke="#2f5bea"/>
           <text x="62" y="48" text-anchor="middle" font-size="20" font-weight="700" fill="#2f5bea">N = 65</text>
           <path d="M104 42 H140 M140 42 L170 24 M140 42 L170 60" stroke="#98a1b3" stroke-width="2" fill="none"/>
@@ -22,32 +22,14 @@ import Layout from '../layouts/Layout.astro';
           <text x="20" y="146" font-size="11" fill="#667085">the repeating pattern Shor's algorithm finds</text>
         </svg>
       </div>
-      <div class="meta"><h3>Shor's algorithm simulator</h3></div>
-      <p>Watch a quantum circuit find the hidden period of a toy RSA key and factor it, one step at a time.</p>
-      <span class="go">Open simulator →</span>
+      <div class="flex items-center mb-1.5"><h3 class="m-0 text-[18px]">Shor's algorithm simulator</h3></div>
+      <p class="m-0 text-muted text-[15px] flex-1">Watch a quantum circuit find the hidden period of a toy RSA key and factor it, one step at a time.</p>
+      <span class="mt-3.5 font-semibold text-accent text-[15px] group-hover:underline">Open simulator →</span>
     </a>
 
-    <a class="card" href="/attack">
-      <div class="art a2">
-        <svg viewBox="0 0 360 150" role="img" aria-label="Alice sends to Bob while Eve records the traffic">
-          <circle cx="44" cy="46" r="22" fill="#eaf0ff" stroke="#2f5bea"/><text x="44" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#2f5bea">A</text>
-          <circle cx="316" cy="46" r="22" fill="#e9f7ef" stroke="#1b8a4b"/><text x="316" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#1b8a4b">B</text>
-          <path d="M70 46 H290" stroke="#98a1b3" stroke-width="2" stroke-dasharray="6 5"/><path d="M284 40 L292 46 L284 52" stroke="#98a1b3" stroke-width="2" fill="none"/>
-          <rect x="168" y="34" width="24" height="22" rx="4" fill="#fff" stroke="#667085"/><path d="M173 34 v-5 a7 7 0 0 1 14 0 v5" stroke="#667085" fill="none" stroke-width="2"/>
-          <path d="M180 56 V92" stroke="#d92d4b" stroke-width="2" stroke-dasharray="3 4"/>
-          <circle cx="180" cy="110" r="22" fill="#fdecef" stroke="#d92d4b"/><text x="180" y="116" text-anchor="middle" font-size="16" font-weight="700" fill="#d92d4b">E</text>
-          <text x="214" y="106" font-size="12" fill="#a8142f">records it today…</text>
-          <text x="214" y="124" font-size="12" fill="#a8142f">decrypts it later</text>
-        </svg>
-      </div>
-      <div class="meta"><h3>Attack demo</h3></div>
-      <p>Alice, Bob and Eve: see why traffic recorded today is at risk, and why a hybrid key holds.</p>
-      <span class="go">Open demo →</span>
-    </a>
-
-    <a class="card" href="/encrypt">
-      <div class="art a3">
-        <svg viewBox="0 0 360 150" role="img" aria-label="A file is locked with two keys into an encrypted file">
+    <a class="group flex flex-col bg-panel border border-line rounded-card pt-5 px-[22px] pb-[22px] no-underline text-ink shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-[border-color,box-shadow] duration-150 hover:border-accent hover:shadow-[0_4px_14px_rgba(47,91,234,.12)]" href="/encrypt">
+      <div class="bg-panel2 rounded-[10px] p-2.5 mb-[18px]">
+        <svg class="block w-full h-auto" viewBox="0 0 360 150" role="img" aria-label="A file is locked with two keys into an encrypted file">
           <path d="M28 20 h40 l16 16 v62 h-56 z" fill="#fff" stroke="#667085" stroke-width="1.5"/><path d="M68 20 v16 h16" fill="none" stroke="#667085" stroke-width="1.5"/>
           <path d="M40 54 h32 M40 66 h32 M40 78 h20" stroke="#cfd4dd" stroke-width="3"/>
           <text x="56" y="122" text-anchor="middle" font-size="11" fill="#667085">your file</text>
@@ -61,11 +43,29 @@ import Layout from '../layouts/Layout.astro';
           <text x="308" y="122" text-anchor="middle" font-size="11" fill="#667085">.pqenc</text>
         </svg>
       </div>
-      <div class="meta"><h3>Encrypt a file</h3></div>
-      <p>Protect a file with X25519 + ML-KEM-768, so it stays safe even against a future quantum computer.</p>
-      <span class="go">Open encryption →</span>
+      <div class="flex items-center mb-1.5"><h3 class="m-0 text-[18px]">Encrypt a file</h3></div>
+      <p class="m-0 text-muted text-[15px] flex-1">Protect a file with X25519 + ML-KEM-768, so it stays safe even against a future quantum computer.</p>
+      <span class="mt-3.5 font-semibold text-accent text-[15px] group-hover:underline">Open encryption →</span>
+    </a>
+
+    <a class="group flex flex-col bg-panel border border-line rounded-card pt-5 px-[22px] pb-[22px] no-underline text-ink shadow-[0_1px_2px_rgba(16,24,40,.04)] transition-[border-color,box-shadow] duration-150 hover:border-accent hover:shadow-[0_4px_14px_rgba(47,91,234,.12)]" href="/attack">
+      <div class="bg-panel2 rounded-[10px] p-2.5 mb-[18px]">
+        <svg class="block w-full h-auto" viewBox="0 0 360 150" role="img" aria-label="Alice sends to Bob while Eve records the traffic">
+          <circle cx="44" cy="46" r="22" fill="#eaf0ff" stroke="#2f5bea"/><text x="44" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#2f5bea">A</text>
+          <circle cx="316" cy="46" r="22" fill="#e9f7ef" stroke="#1b8a4b"/><text x="316" y="52" text-anchor="middle" font-size="16" font-weight="700" fill="#1b8a4b">B</text>
+          <path d="M70 46 H290" stroke="#98a1b3" stroke-width="2" stroke-dasharray="6 5"/><path d="M284 40 L292 46 L284 52" stroke="#98a1b3" stroke-width="2" fill="none"/>
+          <rect x="168" y="34" width="24" height="22" rx="4" fill="#fff" stroke="#667085"/><path d="M173 34 v-5 a7 7 0 0 1 14 0 v5" stroke="#667085" fill="none" stroke-width="2"/>
+          <path d="M180 56 V92" stroke="#d92d4b" stroke-width="2" stroke-dasharray="3 4"/>
+          <circle cx="180" cy="110" r="22" fill="#fdecef" stroke="#d92d4b"/><text x="180" y="116" text-anchor="middle" font-size="16" font-weight="700" fill="#d92d4b">E</text>
+          <text x="214" y="106" font-size="12" fill="#a8142f">records it today…</text>
+          <text x="214" y="124" font-size="12" fill="#a8142f">decrypts it later</text>
+        </svg>
+      </div>
+      <div class="flex items-center mb-1.5"><h3 class="m-0 text-[18px]">Attack demo</h3></div>
+      <p class="m-0 text-muted text-[15px] flex-1">Alice, Bob and Eve: see why traffic recorded today is at risk, and why a hybrid key holds.</p>
+      <span class="mt-3.5 font-semibold text-accent text-[15px] group-hover:underline">Open demo →</span>
     </a>
   </div>
 
-  <p class="foot">Toy-sized numbers and an unaudited prototype: built for learning, not for real secrets.</p>
+  <p class="text-center text-muted text-[14px] mt-7 mb-0">Toy-sized numbers and an unaudited prototype: built for learning, not for real secrets.</p>
 </Layout>

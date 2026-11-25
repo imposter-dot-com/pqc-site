@@ -14,7 +14,9 @@
 
 // types
 export type Rng = () => number;
-export interface NoiseSettings { readout?: number; depol?: number }
+// readout: chance each measured bit flips.
+// gate1 / gate2: chance a one-qubit / two-qubit gate goes wrong (a random error is then applied to the qubits it touched)
+export interface NoiseSettings { readout?: number; gate1?: number; gate2?: number }
 export interface State { t: number; Q: number; re: Float64Array; im: Float64Array }
 export type Gate =
   | { type: 'H'; q: number }
@@ -28,23 +30,24 @@ export interface Analysis {
   dist: (M: number, xs: number[]) => Float64Array;
   trueOrder: number | null; // only used to draw the teaching charts, the algorithm never looks at it
 }
-export interface Shot { y0: number; kIdeal: number; k: number }
+export interface Shot { y0: number; k: number; gateErrors: number }
+// something that runs one shot. the default is runShot below; modexp.ts has one that runs the whole circuit gate by gate
+export type ShotRunner = (an: Analysis, a: number, rng: Rng, noise: NoiseSettings | null) => Shot;
 export interface Convergent { num: number; den: number }
 export interface OrderResult { k: number; convergents: Convergent[]; r: number | null; from?: Convergent; multiple?: number }
 export type Factors =
   | { ok: true; p: number; q: number; half?: number }
   | { ok: false; reason: string };
-export interface ShotRecord { i: number; y0: number; k: number; kIdeal: number; conv: Convergent[]; r: number | null }
+export interface ShotRecord { i: number; y0: number; k: number; gateErrors: number; conv: Convergent[]; r: number | null }
 export interface Attempt { a: number; N: number; t: number; analysis: Analysis; shots: ShotRecord[]; r: number | null; factors: Factors }
 export interface Lucky { a: number; lucky: number }
-export interface AttemptOptions { t?: number; rng?: Rng; shots?: number; noise?: NoiseSettings | null; analysis?: Analysis; stopEarly?: boolean }
-export interface ShorOptions { a?: number | null; t?: number; rng?: Rng; shots?: number; noise?: NoiseSettings | null; maxTries?: number; stopEarly?: boolean }
+export interface AttemptOptions { t?: number; rng?: Rng; shots?: number; noise?: NoiseSettings | null; analysis?: Analysis; stopEarly?: boolean; shot?: ShotRunner }
+export interface ShorOptions { a?: number | null; t?: number; rng?: Rng; shots?: number; noise?: NoiseSettings | null; maxTries?: number; stopEarly?: boolean; shot?: ShotRunner }
 export interface ShorResult { N: number; tries: Array<Attempt | Lucky>; factors: Factors; trivial?: string }
 export interface RSAKey { p: number; q: number; N: number; phi: number; e: number; d: number | null }
 
 // small number theory helpers (plain js numbers are fine because n < 2^26)
 export function gcd(a: number, b: number): number { while (b) { const t = a % b; a = b; b = t; } return a; }
-export function lcm(a: number, b: number): number { return (a / gcd(a, b)) * b; }
 export function modPow(base: number, exp: number, mod: number): number {
   let r = 1; base %= mod;
   while (exp > 0) { if (exp & 1) r = (r * base) % mod; base = (base * base) % mod; exp = Math.floor(exp / 2); }
@@ -130,6 +133,64 @@ export function applyQFT(s: State): void {
     else applySwap(s, g.a, g.b);
   }
 }
+// ---- noise on the gates ----
+// every gate of the qft can go wrong. when it does, a random error (an X, Y or Z flip on each qubit it touched, not all
+// "do nothing") is applied right after it. this is the usual "depolarizing gate error" model.
+// a real chip builds a controlled-phase gate from 2 two-qubit gates and a swap from 3, so those fail more often.
+export const twoQubitCost = (g: Gate): number => (g.type === 'CP' ? 2 : g.type === 'SWAP' ? 3 : 0);
+
+// the chance one gate fails. a one-qubit gate fails with chance gate1. a gate worth k two-qubit gates fails like k of them in a row.
+// (modexp.ts uses this too, for its X, CNOT and Toffoli gates)
+export function failChance(noise: NoiseSettings | null | undefined, twoQubitGates: number): number {
+  if (twoQubitGates === 0) return noise?.gate1 ?? 0;
+  const p2 = noise?.gate2 ?? 0;
+  return twoQubitGates === 1 ? p2 : 1 - Math.pow(1 - p2, twoQubitGates);
+}
+export const gateErrorChance = (g: Gate, noise: NoiseSettings | null | undefined): number => failChance(noise, twoQubitCost(g));
+export const hasGateNoise = (noise: NoiseSettings | null | undefined): boolean => !!noise && ((noise.gate1 ?? 0) > 0 || (noise.gate2 ?? 0) > 0);
+
+// decide which gates go wrong in one run. null means none did (so the cached ideal result can be used)
+export function drawGateErrors(gates: Gate[], noise: NoiseSettings | null | undefined, rng: Rng): boolean[] | null {
+  if (!hasGateNoise(noise)) return null;
+  let any = false;
+  const failed = gates.map(g => { const f = rng() < gateErrorChance(g, noise); if (f) any = true; return f; });
+  return any ? failed : null;
+}
+
+// apply X (1), Y (2) or Z (3) to one qubit. Y is done as Z then X, which is the same up to a global phase we can't measure
+function applyPauli(s: State, q: number, kind: number): void {
+  if (kind === 0) return;
+  const bit = 1 << q, { re, im, Q } = s;
+  if (kind === 2 || kind === 3) for (let i = 0; i < Q; i++) if (i & bit) { re[i] = -re[i]; im[i] = -im[i]; }
+  if (kind === 1 || kind === 2) {
+    for (let i = 0; i < Q; i++) {
+      if (i & bit) continue;
+      const j = i | bit;
+      let tmp = re[i]; re[i] = re[j]; re[j] = tmp;
+      tmp = im[i]; im[i] = im[j]; im[j] = tmp;
+    }
+  }
+}
+// a random error that is not "do nothing": one qubit gets 3 choices, two qubits get 15
+function randomError(s: State, qubits: number[], rng: Rng): void {
+  const choices = Math.pow(4, qubits.length) - 1;
+  let code = 1 + Math.floor(rng() * choices);
+  for (const q of qubits) { applyPauli(s, q, code & 3); code >>= 2; }
+}
+// run any list of gates, giving the ones marked in `failed` (from drawGateErrors, or null for none) a random error after them
+export function applyNoisyGates(s: State, gates: Gate[], failed: boolean[] | null, rng: Rng): void {
+  gates.forEach((g, idx) => {
+    if (g.type === 'H') applyH(s, g.q);
+    else if (g.type === 'CP') applyCPhase(s, g.c, g.q, (2 * Math.PI) / Math.pow(2, g.k));
+    else applySwap(s, g.a, g.b);
+    if (failed?.[idx]) randomError(s, g.type === 'H' ? [g.q] : g.type === 'CP' ? [g.c, g.q] : [g.a, g.b], rng);
+  });
+}
+// the qft with errors: gates listed in `failed` (from drawGateErrors) get a random error after them
+export function applyNoisyQFT(s: State, failed: boolean[], rng: Rng): void {
+  applyNoisyGates(s, qftGates(s.t), failed, rng);
+}
+
 export function probabilities(s: State): Float64Array {
   const p = new Float64Array(s.Q);
   for (let i = 0; i < s.Q; i++) p[i] = s.re[i] * s.re[i] + s.im[i] * s.im[i];
@@ -183,31 +244,38 @@ function finishAnalysis(a: number, N: number, t: number, classes: Map<number, nu
   return { a, N, t, Q, targets, classes, dist, trueOrder };
 }
 
-function sampleFrom(probs: Float64Array, rng: Rng): number {
+// pick an index with the chance given in `probs` (they add up to 1)
+export function sampleFrom(probs: Float64Array, rng: Rng): number {
   const u = rng(); let acc = 0;
   for (let i = 0; i < probs.length; i++) { acc += probs[i]; if (u < acc) return i; }
   return probs.length - 1;
 }
 
-// noise models:
-// - depolarizing: with probability q the whole run is scrambled and the result is totally random
-// - readout: every counting bit flips on its own with probability p
+// readout noise: every counting bit flips on its own with probability p
 export function applyNoise(k: number, t: number, noise: NoiseSettings | null | undefined, rng: Rng): number {
   if (!noise) return k;
-  if ((noise.depol ?? 0) > 0 && rng() < (noise.depol as number)) k = Math.floor(rng() * (1 << t));
   if ((noise.readout ?? 0) > 0) for (let b = 0; b < t; b++) if (rng() < (noise.readout as number)) k ^= (1 << b);
   return k;
 }
 
-// one full run of the circuit: the measured target value, the ideal result and the noisy result
+// one full run of the circuit: the measured target value and the (possibly noisy) result
 export function runShot(an: Analysis, rng: Rng, noise?: NoiseSettings | null): Shot {
   // measure the target register: pick a class with probability |class| / q
   const u = rng(); let acc = 0, cls = an.targets[an.targets.length - 1];
   for (const c of an.targets) { acc += c.weight; if (u < acc) { cls = c; break; } }
-  const p = an.dist(cls.xs.length, cls.xs);
-  const kIdeal = sampleFrom(p, rng);
-  const k = applyNoise(kIdeal, an.t, noise, rng);
-  return { y0: cls.y, kIdeal, k };
+  // gate errors: if no gate fails this run, the cached ideal result is exact. if some do, run the qft again with those errors
+  const failed = drawGateErrors(qftGates(an.t), noise, rng);
+  let kGate: number, gateErrors = 0;
+  if (!failed) kGate = sampleFrom(an.dist(cls.xs.length, cls.xs), rng);
+  else {
+    const s = makeState(an.t), amp = 1 / Math.sqrt(cls.xs.length);
+    for (const x of cls.xs) s.re[x] = amp;
+    applyNoisyQFT(s, failed, rng);
+    kGate = sampleFrom(probabilities(s), rng);
+    gateErrors = failed.filter(Boolean).length;
+  }
+  const k = applyNoise(kGate, an.t, noise, rng);
+  return { y0: cls.y, k, gateErrors };
 }
 
 // classical post-processing
@@ -247,8 +315,8 @@ export function attempt(N: number, a: number, opts: AttemptOptions = {}): Attemp
   const an = opts.analysis || analyze(a, N, t);
   const list: ShotRecord[] = []; let best: number | null = null;
   for (let i = 0; i < shots; i++) {
-    const s = runShot(an, rng, noise), o = orderFromMeasurement(s.k, an.Q, a, N);
-    list.push({ i: i + 1, y0: s.y0, k: s.k, kIdeal: s.kIdeal, conv: o.convergents, r: o.r });
+    const s = (opts.shot ? opts.shot(an, a, rng, noise) : runShot(an, rng, noise)), o = orderFromMeasurement(s.k, an.Q, a, N);
+    list.push({ i: i + 1, y0: s.y0, k: s.k, gateErrors: s.gateErrors, conv: o.convergents, r: o.r });
     if (o.r && (best === null || o.r < best)) best = o.r;
     if (opts.stopEarly && best) {
       const f = factorsFromOrder(a, N, best); if (f.ok) break;
@@ -269,24 +337,11 @@ export function shor(N: number, opts: ShorOptions = {}): ShorResult {
       tries.push({ a, lucky: g });
       return { N, tries, factors: { ok: true, p: Math.min(g, N / g), q: Math.max(g, N / g) }, trivial: 'gcd(a, N) > 1 (lucky guess, no quantum step needed)' };
     }
-    const at = attempt(N, a, { t: opts.t, rng, shots: opts.shots, noise: opts.noise, stopEarly: opts.stopEarly !== false });
+    const at = attempt(N, a, { t: opts.t, rng, shots: opts.shots, noise: opts.noise, stopEarly: opts.stopEarly !== false, shot: opts.shot });
     tries.push(at);
     if (at.factors.ok) return { N, tries, factors: at.factors };
   }
   return { N, tries, factors: { ok: false, reason: 'no factors after ' + maxTries + ' tries' } };
-}
-
-// how often a single shot gives a valid order, for a list of noise levels
-export function noiseSweep(N: number, a: number, levels: number[], kind: 'readout' | 'depol', trials: number, rng: Rng, t?: number): number[] {
-  const tt = t || 2 * bitLength(N);
-  const an = analyze(a, N, tt), out: number[] = [];
-  for (const lv of levels) {
-    const noise: NoiseSettings = kind === 'depol' ? { depol: lv } : { readout: lv };
-    let ok = 0;
-    for (let i = 0; i < trials; i++) { const s = runShot(an, rng, noise); if (orderFromMeasurement(s.k, an.Q, a, N).r) ok++; }
-    out.push(ok / trials);
-  }
-  return out;
 }
 
 // toy rsa used by the demo

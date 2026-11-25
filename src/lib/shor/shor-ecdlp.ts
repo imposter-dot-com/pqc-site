@@ -12,10 +12,10 @@
 // the measurement of f, the fourier transform over the two registers (worked out amplitude by amplitude),
 // and the measurement of (u, v). the secret k is never used until the very last check.
 // what is idealised: we use an exact fourier transform over the numbers mod r, with no noise.
-import { CURVE, add, inverse, mul, neg, samePoint } from './toy-ec.ts';
-import type { Point, Pt } from './toy-ec.ts';
-
-export type Rng = () => number;
+import { sampleFrom } from './shor-core.ts';
+import type { Rng } from './shor-core.ts';
+import { CURVE, add, inverse, mul, neg, samePoint } from '../crypto/toy-ec.ts';
+import type { Point, Pt } from '../crypto/toy-ec.ts';
 
 export interface DlogShot { u: number; v: number; k: number | null }
 
@@ -39,14 +39,6 @@ function orderOf(P: Point): number {
   let current: Pt = P;
   while (current) { current = add(current, P); count++; }
   return count;
-}
-
-// pick (u, v) from a table of chances
-function sample(chances: Float64Array, rng: Rng): number {
-  const target = rng();
-  let sum = 0;
-  for (let i = 0; i < chances.length; i++) { sum += chances[i]!; if (target < sum) return i; }
-  return chances.length - 1;
 }
 
 export function shorDiscreteLog(P: Point, Q: Point, opts: { maxShots?: number; rng?: Rng; stopEarly?: boolean } = {}): DlogRun {
@@ -105,7 +97,7 @@ export function shorDiscreteLog(P: Point, Q: Point, opts: { maxShots?: number; r
   const shots: DlogShot[] = [];
   let found: number | null = null;
   for (let i = 0; i < maxShots && !(stopEarly && found !== null); i++) {
-    const index = sample(chances, rng);
+    const index = sampleFrom(chances, rng);
     const u = Math.floor(index / r);
     const v = index % r;
     let k: number | null = null;

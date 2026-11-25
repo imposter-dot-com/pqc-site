@@ -1,11 +1,10 @@
 // run: node test/hybrid.test.ts (node 22.18+). tests the protocol code with a fake kem (not secure) and node's built-in x25519.
 // the real ml-kem-768 runs in the browser. check it with npm run test:real.
 import { createHash, randomBytes as nodeRandom } from 'node:crypto';
-import * as H from '../src/lib/hybrid.ts';
-import { equalBytes, concat, randomBytes } from '../src/lib/bytes.ts';
+import * as H from '../src/lib/crypto/hybrid.ts';
+import { equalBytes, concat, randomBytes } from '../src/lib/crypto/bytes.ts';
+import { check, done } from './check.ts';
 
-let pass = 0, fail = 0;
-function check(name: string, cond: boolean, extra?: unknown): void { if (cond) { pass++; console.log('PASS', name); } else { fail++; console.log('FAIL', name, extra ?? ''); } }
 const sha = (...p: Uint8Array[]): Uint8Array => new Uint8Array(createHash('sha256').update(concat(...p)).digest());
 const expand = (seed: Uint8Array, n: number): Uint8Array => { const out = new Uint8Array(n); let i = 0, c = 0; while (i < n) { const h = sha(seed, new Uint8Array([c++])); out.set(h.subarray(0, Math.min(32, n - i)), i); i += 32; } return out; };
 
@@ -78,5 +77,4 @@ async function rejects(b: Uint8Array): Promise<boolean> { try { await H.decryptF
   const rec = await H.recover(suite, keys, est.ctM, est.ephPub);
   check('receiver recovers the sender key', equalBytes(rec, est.key));
 }
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+done();

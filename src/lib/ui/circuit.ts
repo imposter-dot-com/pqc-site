@@ -31,10 +31,10 @@ export function circuitSvg(t: number): string {
 
   // headings for the four stages
   const stages: Array<[number, string]> = [
-    [110, '1 Superposition'],
-    [285, '2 a<tspan dy="-6" font-size="11">x</tspan><tspan dy="6"> mod N</tspan>'],
-    [455, '3 QFT'],
-    [590, '4 Measure'],
+    [110, 'Superposition'],
+    [285, 'a<tspan dy="-6" font-size="11">x</tspan><tspan dy="6"> mod N</tspan>'],
+    [455, 'QFT'],
+    [590, 'Measure'],
   ];
   for (const [x, label] of stages) s += `<text class="st" x="${x}" y="16">${label}</text>`;
 
@@ -100,7 +100,6 @@ export function circuitSvg(t: number): string {
 // the explanation under the circuit
 export function circuitCaption(t: number, n: number, N: number, a: number | null): string {
   return (
-    'Read it left to right: try every x at once, compute a<sup>x</sup> mod N, use the QFT to spot the pattern, then measure. ' +
     `Only some wires are drawn: there are ${t} counting qubits (q<sub>0</sub> to q<sub>${t - 1}</sub>, they hold x) ` +
     `plus ${n} target qubits (they hold a<sup>x</sup> mod N), ${t + n} in total.` +
     (a ? ` Here N = ${N} and a = ${a}.` : '')

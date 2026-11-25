@@ -1,11 +1,10 @@
 // run this after npm install: npm run test:real
 // checks the real libraries (ml-kem-768 + x25519) through the same protocol code as the other tests.
-import * as H from '../src/lib/hybrid.ts';
-import { realSuite, MLKEM_PUBLIC_LEN, MLKEM_CT_LEN } from '../src/lib/suite.ts';
-import { equalBytes, randomBytes } from '../src/lib/bytes.ts';
+import * as H from '../src/lib/crypto/hybrid.ts';
+import { realSuite, MLKEM_PUBLIC_LEN, MLKEM_CT_LEN } from '../src/lib/crypto/suite.ts';
+import { equalBytes, randomBytes } from '../src/lib/crypto/bytes.ts';
+import { check, done } from './check.ts';
 
-let pass = 0, fail = 0;
-const check = (n: string, c: boolean, x?: unknown): void => { if (c) { pass++; console.log('PASS', n); } else { fail++; console.log('FAIL', n, x ?? ''); } };
 
 const keys = await H.generateReceiverKeys(realSuite);
 check('ML-KEM-768 public key is 1,184 bytes (FIPS 203)', keys.pkM.length === MLKEM_PUBLIC_LEN, keys.pkM.length);
@@ -20,5 +19,4 @@ check('round trip with the real libraries', equalBytes(await H.decryptFile(realS
 const bad = blob.slice(); bad[bad.length - 3] ^= 1;
 let rejected = false; try { await H.decryptFile(realSuite, keys, bad); } catch { rejected = true; }
 check('tampered file is rejected', rejected);
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
+done();

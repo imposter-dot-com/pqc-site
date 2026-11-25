@@ -1,15 +1,16 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import * as S from '../lib/shor-core.ts';
-  import { realSuite } from '../lib/suite.ts';
-  import { establish, buildHeader, sealWithKey, openWithKey, parseFile, deriveFileKey, generateReceiverKeys, NONCE_LEN } from '../lib/hybrid.ts';
-  import type { ReceiverKeys } from '../lib/hybrid.ts';
-  import { CURVE, G, decodePoint, encodeSecret, toyDh } from '../lib/toy-ec.ts';
-  import { shorDiscreteLog } from '../lib/shor-ecdlp.ts';
-  import { periodExperiment, scrambledFunction, seedFromBytes } from '../lib/shor-period.ts';
+  import * as S from '../lib/shor/shor-core.ts';
+  import { realSuite } from '../lib/crypto/suite.ts';
+  import { establish, buildHeader, sealWithKey, openWithKey, parseFile, deriveFileKey, generateReceiverKeys, NONCE_LEN } from '../lib/crypto/hybrid.ts';
+  import type { ReceiverKeys } from '../lib/crypto/hybrid.ts';
+  import { CURVE, G, decodePoint, encodeSecret, toyDh } from '../lib/crypto/toy-ec.ts';
+  import { shorDiscreteLog } from '../lib/shor/shor-ecdlp.ts';
+  import { periodExperiment, scrambledFunction, seedFromBytes } from '../lib/shor/shor-period.ts';
   import AttackViz from './AttackViz.svelte';
-  import type { Viz } from '../lib/attack-viz.ts';
-  import { utf8, randomBytes, toHex, equalBytes } from '../lib/bytes.ts';
+  import type { Viz } from '../lib/ui/attack-viz.ts';
+  import { utf8, randomBytes, toHex, equalBytes } from '../lib/crypto/bytes.ts';
+  import { ui } from '../lib/ui/ui.ts';
 
   // ---- what alice sends: a text message or a file ----
   let mode = $state<'text' | 'file'>('text');
@@ -268,17 +269,17 @@
     }
     busy = false;
     await tick();
-    document.querySelector('.stepcard.now, .summary')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    document.querySelector('[data-current], [data-summary]')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }
 </script>
 
-<div class="attack">
-  <div class="panel setup">
+<div class="flex flex-col gap-5">
+  <div class="{ui.panel} grid grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] gap-5 items-end max-[900px]:grid-cols-1 [&_label]:mt-0">
     <div>
       <label for="mode-text">What does Alice send?</label>
-      <div class="seg" style="margin:0">
-        <button id="mode-text" class:on={mode === 'text'} onclick={() => setMode('text')}>Text message</button>
-        <button class:on={mode === 'file'} onclick={() => setMode('file')}>File</button>
+      <div class={ui.seg}>
+        <button id="mode-text" class={mode === 'text' ? ui.segOn : ui.segBtn} onclick={() => setMode('text')}>Text message</button>
+        <button class={mode === 'file' ? ui.segOn : ui.segBtn} onclick={() => setMode('file')}>File</button>
       </div>
     </div>
     <div>
@@ -299,36 +300,36 @@
     <button onclick={reset} disabled={step === 0}>Start over</button>
   </div>
 
-  <div class="flow">
+  <div class="flex flex-col gap-3.5">
     {#each [1, 2] as act}
-      <div class="act">
-        <h2>{act === 1 ? 'Act 1: today, protected by RSA' : 'Act 2: the fix, protected by the hybrid (elliptic curve + ML-KEM-768)'}</h2>
+      <div>
+        <h2 class="m-0 text-[21px] {act === 1 ? 'mt-1.5' : 'mt-[18px]'}">{act === 1 ? 'Act 1: today, protected by RSA' : 'Act 2: the fix, protected by the hybrid (elliptic curve + ML-KEM-768)'}</h2>
       </div>
       {#each STEPS as s, i}
         {#if s.act === act}
-          <div class="stepcard" class:now={i === step} class:todo={i > step} class:done={i < step}>
-            <span class="num">{i < step ? '✓' : i + 1}</span>
-            <div class="body">
-              <b>{s.title}</b>
-              <p>{s.text}</p>
+          <div class="flex gap-4 items-start bg-panel border rounded-xl px-[22px] py-[18px] {i === step ? 'border-accent shadow-[0_0_0_3px_var(--color-accent-ring)]' : 'border-line shadow-[0_1px_2px_rgba(16,24,40,.04)]'} {i > step ? 'opacity-45' : ''}" data-current={i === step ? '' : undefined}>
+            <span class="inline-flex items-center justify-center rounded-full text-white font-bold align-middle flex-none mr-2.5 mt-0.5 size-[26px] text-[13px] {i < step ? 'bg-green' : 'bg-accent'}">{i < step ? '✓' : i + 1}</span>
+            <div class="min-w-0 flex-1">
+              <b class="text-[17px]">{s.title}</b>
+              <p class="mt-1 mb-0 text-muted text-[15px]">{s.text}</p>
 
               {#if i <= step && outs[i]}
                 {@const o = outs[i]!}
-                <div class="out">
+                <div class="mt-3.5 flex flex-col gap-3 leading-[1.6]">
                   {#if o.viz}<div><AttackViz viz={o.viz} /></div>{/if}
                   <div>{o.note}</div>
                   {#if o.reads}
                     <div>
-                      <span class="lbl">What Eve reads</span>
-                      <div class="reads {o.reads.kind}">{o.reads.text}</div>
-                      {#if o.reads.kind === 'bad' && url}<p class="caption"><a href={url} download={'recovered-' + fileName}>Download the file Eve recovered</a></p>{/if}
+                      <span class="block text-[13px] font-medium text-muted mb-[5px]">What Eve reads</span>
+                      <div class="{ui.reads} {o.reads.kind === 'bad' ? ui.readsBad : ui.readsOk}">{o.reads.text}</div>
+                      {#if o.reads.kind === 'bad' && url}<p class={ui.caption}><a href={url} download={'recovered-' + fileName}>Download the file Eve recovered</a></p>{/if}
                     </div>
                   {/if}
                 </div>
               {/if}
 
               {#if i === step}
-                <button class="primary" onclick={runNext} disabled={busy || !canStart}>
+                <button class="{ui.accentBtn} hover:brightness-[1.07] mt-3.5 px-7 py-[11px]" onclick={runNext} disabled={busy || !canStart}>
                   {busy ? 'Working…' : i === 0 ? 'Start' : outs[i]?.retry ? 'Try again' : 'Next step'}
                 </button>
               {/if}
@@ -339,13 +340,13 @@
     {/each}
 
     {#if step >= STEPS.length}
-      <div class="panel summary">
-        <h2>What we learned</h2>
-        <div class="results">
-          <div class="reads bad"><b>RSA:</b> Shor factored N, so Eve got the private key and read the data.</div>
-          <div class="reads ok"><b>Hybrid:</b> Shor really recovered the elliptic-curve secret, but found no loop in ML-KEM, so the key stayed incomplete and the data stayed scrambled.</div>
+      <div class={ui.panel} data-summary>
+        <h2 class={ui.panelTitle}>What we learned</h2>
+        <div class="grid grid-cols-2 gap-5 mt-1.5 max-[900px]:grid-cols-1">
+          <div class="{ui.reads} {ui.readsBad}"><b>RSA:</b> Shor factored N, so Eve got the private key and read the data.</div>
+          <div class="{ui.reads} {ui.readsOk}"><b>Hybrid:</b> Shor really recovered the elliptic-curve secret, but found no loop in ML-KEM, so the key stayed incomplete and the data stayed scrambled.</div>
         </div>
-        <p class="caption">Want to see how Shor finds the factors? <a href="/simulator">Open the simulator →</a> Want to protect a real file? <a href="/encrypt">Encrypt a file →</a></p>
+        <p class={ui.caption}>Want to see how Shor finds the factors? <a href="/simulator">Open the simulator →</a> Want to protect a real file? <a href="/encrypt">Encrypt a file →</a></p>
       </div>
     {/if}
   </div>
